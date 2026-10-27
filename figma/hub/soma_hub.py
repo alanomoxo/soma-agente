@@ -25,7 +25,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-from soma_core import Agent, VERSION  # noqa: E402
+from soma_core import Agent, VERSION, extensions  # noqa: E402
 from soma_hub_registry import Registry  # noqa: E402
 from soma_hub_updater import Updater  # noqa: E402
 
@@ -122,6 +122,7 @@ def state():
         "model": model["id"], "effort": a.selected_effort(),
         "messages": [{"role": m["role"], "text": m["text"], "state": m.get("state")} for m in a.messages[-200:]],
         "toolCalls": host.open_calls(),
+        "pending": extensions.pending(),
     }
 
 
@@ -237,6 +238,10 @@ class Handler(BaseHTTPRequestHandler):
                 images.append(file)
                 uploads.append(file)
             self._send(200, {"ok": agent.send(body.get("text") or "", images)})
+        elif path == "/extensions/approve":
+            extensions.approve(body.get("kind"), body.get("name"), bool(body.get("accept")))
+            agent._changed()
+            self._send(200, {"ok": True})
         elif path == "/stop":
             agent.stop()
             self._send(200, {"ok": True})

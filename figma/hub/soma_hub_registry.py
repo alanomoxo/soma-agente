@@ -13,7 +13,7 @@ import threading
 import time
 import urllib.request
 
-from soma_core import VERSION, system
+from soma_core import VERSION, extensions, system
 
 APP_TTL = 90
 TOKEN_FILE = os.path.join(system.data_directory(), "hub-token.txt")
@@ -24,7 +24,9 @@ INSTRUCTIONS = (
     "get_app_tools to read a program's tools, then call_app_tool to act. You can chain programs in one "
     "task, for example render a frame in Blender, place it in Photoshop and animate it in After Effects. "
     "Each program's tools include an inspection tool, a preview tool that returns an image, and a scripting "
-    "fallback; inspect before editing and check previews before declaring success."
+    "fallback; inspect before editing and check previews before declaring success. "
+    "The soma_* tools manage skills (reusable instructions, shared by every program) and connectors (other MCP servers): "
+    "read a matching skill with soma_read_skill before working, and use soma_create_skill / soma_install_skill / soma_add_connector when the user asks."
 )
 
 
@@ -156,11 +158,14 @@ class Registry:
         if method == "ping":
             return reply({})
         if method == "tools/list":
-            return reply({"tools": self.TOOLS})
+            return reply({"tools": self.TOOLS + extensions.TOOLS})
         if method == "tools/call":
             name = params.get("name")
             args = params.get("arguments") or {}
             try:
+                if str(name).startswith("soma_"):
+                    result = extensions.call(name, args)
+                    return text(result, not result.get("ok"))
                 if name == "list_apps":
                     return text({"apps": [{"app": e["id"], "name": e["name"]} for e in self.live()]})
                 if name == "get_app_tools":

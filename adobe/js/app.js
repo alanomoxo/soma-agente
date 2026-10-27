@@ -183,6 +183,8 @@
     referenceStore = new window.AEReferences.Store(node, node.path.join(window.AEPlatform.dataDirectory(node), "References"));
     try { referenceStore.load(); } catch (error) { referenceStore.items = []; }
   }
+  // Skills and connectors, shared with every other Soma program.
+  var extensions = node.fs && window.SomaExtensions ? new window.SomaExtensions.Extensions(node, window.AEPlatform.dataDirectory(node)) : null;
 
   function isUndoOrRedoShortcut(event) {
     var key = String(event.key || "").toLowerCase();
@@ -489,7 +491,12 @@
         delete schema.anyOf;
       }
       return { name: tool.name, description: description, inputSchema: schema };
-    });
+    }).concat(extensions ? window.SomaExtensions.Extensions.TOOLS : []);
+  }
+
+  // Everything the agent is told, including the current skills and connectors.
+  function fullInstructions() {
+    return agentInstructions + (extensions ? extensions.instructions() : "") + persistentInstructionBlock();
   }
 
   // Calls from another agent through the Soma Hub (Antigravity) run outside a
@@ -520,7 +527,7 @@
       return Promise.resolve(reply({
         protocolVersion: params.protocolVersion || "2025-06-18",
         capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: MCP_SERVER_NAME, title: "Soma Agente", version: "1.5.1" }
+        serverInfo: { name: MCP_SERVER_NAME, title: "Soma Agente", version: "1.6.0" }
       }));
     }
     if (message.method === "ping") {
@@ -531,6 +538,12 @@
     }
     if (message.method === "tools/call") {
       var tool = params.name;
+      if (extensions && /^soma_/.test(tool)) {
+        return extensions.call(tool, params.arguments || {}).then(function (result) {
+          setTimeout(renderExtensions, 0);
+          return reply({ content: [{ type: "text", text: JSON.stringify(result) }], isError: result.ok !== true });
+        });
+      }
       var call = external ? executeExternalTool(tool, params.arguments || {}) : executeDynamicTool({ namespace: MCP_SERVER_NAME, tool: tool, arguments: params.arguments || {} });
       return call.then(waitForFrames).then(function (result) {
         var output = buildToolContent(result);
@@ -726,13 +739,17 @@
       if (!run || run !== activeRun || run.stopRequested) { throw new Error("Request stopped before generation started."); }
       var dataDir = claudeDataDirectory();
       var promptPath = node.path.join(dataDir, "system-prompt-" + HOST.id + ".txt");
-      node.fs.writeFileSync(promptPath, agentInstructions + persistentInstructionBlock(), "utf8");
+      node.fs.writeFileSync(promptPath, fullInstructions(), "utf8");
+      // The program's tools plus every enabled connector, rewritten each turn.
+      var servers = extensions ? extensions.claudeServers() : {};
+      servers[MCP_SERVER_NAME] = { type: "http", url: self.mcpUrl, headers: { Authorization: "Bearer " + self.token } };
+      node.fs.writeFileSync(self.mcpConfigPath, JSON.stringify({ mcpServers: servers }), { encoding: "utf8", mode: 384 });
       var args = [
         "-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
         "--system-prompt-file", promptPath,
         "--mcp-config", self.mcpConfigPath, "--strict-mcp-config",
         "--tools", "",
-        "--allowedTools", "mcp__" + MCP_SERVER_NAME,
+        "--allowedTools", Object.keys(servers).map(function (name) { return "mcp__" + name; }).join(","),
         "--permission-mode", "dontAsk"
       ];
       if (self.threadId) { args.push("--resume", self.threadId); }
@@ -961,8 +978,8 @@
         "-c", "mcp_servers." + MCP_SERVER_NAME + ".default_tools_approval_mode=\"approve\"",
         "-c", "mcp_servers." + MCP_SERVER_NAME + ".tool_timeout_sec=3600",
         "-c", "approval_policy=\"never\"",
-        "-c", "developer_instructions=" + tomlString(agentInstructions + persistentInstructionBlock())
-      ];
+        "-c", "developer_instructions=" + tomlString(fullInstructions())
+      ].concat(extensions ? extensions.codexOverrides() : []);
       if (self.selectedModel && self.selectedModel.model) { args.push("-m", self.selectedModel.model); }
       if (self.selectedEffort && modelEfforts(self.selectedModel).length) { args.push("-c", "model_reasoning_effort=" + tomlString(self.selectedEffort)); }
       if (self.threadId) { args.push("resume"); }
@@ -1047,7 +1064,7 @@
   // is registered with the hub, and those calls show up as "Antigravity · …".
   // ---------------------------------------------------------------------------
 
-  var SOMA_TOOL_RULES = ["mcp(soma/list_apps)", "mcp(soma/get_app_tools)", "mcp(soma/call_app_tool)"];
+  var SOMA_TOOL_RULES = ["mcp(soma/*)"];
 
   function readJson(file) {
     try { var text = node.fs.readFileSync(file, "utf8").trim(); return text ? JSON.parse(text) : {}; } catch (error) { return {}; }
@@ -1174,6 +1191,7 @@
     var run = activeRun;
     return new Promise(function (resolve) {
       if (!run || run !== activeRun || run.stopRequested) { throw new Error("Request stopped before generation started."); }
+      if (extensions) { extensions.syncAntigravity(); }
       if (!ensureAntigravityConfig()) { throw new Error("The Soma Hub is not running, so Antigravity cannot reach " + HOST.name + ". Reinstall Soma Agente or open “Soma Hub” from the Start menu."); }
       hubPost(self, "/hub/register");
       var workspace = node.path.join(claudeDataDirectory(), "antigravity-workspace");
@@ -1181,7 +1199,7 @@
       var input = codexInput(content);
       var prompt = [];
       if (!self.threadId) {
-        prompt.push("<soma_instructions>\n" + agentInstructions + persistentInstructionBlock() + "\nYou reach " + HOST.name + " through the soma MCP server: call get_app_tools with app=\"" + HOST.id + "\" once, then call_app_tool with app=\"" + HOST.id + "\" for every action. Other open programs are listed by list_apps if the user asks to combine programs. Do not use the terminal, browser or file-editing tools for work in " + HOST.name + ".\n</soma_instructions>");
+        prompt.push("<soma_instructions>\n" + fullInstructions() + "\nYou reach " + HOST.name + " through the soma MCP server: call get_app_tools with app=\"" + HOST.id + "\" once, then call_app_tool with app=\"" + HOST.id + "\" for every action. Skills and connectors are managed with the soma_* tools of the same soma server. Other open programs are listed by list_apps if the user asks to combine programs. Do not use the terminal, browser or file-editing tools for work in " + HOST.name + ".\n</soma_instructions>");
       }
       input.images.forEach(function (file, i) { prompt.push("[Attached image #" + (i + 1) + ", file path: " + file + "]"); });
       prompt.push(input.prompt);
@@ -2521,6 +2539,121 @@
     return chain.then(renderReferences).catch(function (error) { showBanner("Could not add the reference: " + error.message); });
   }
 
+  // ---------------------------------------------------------------------------
+  // Skills & connectors UI: settings tab plus an approval bar in the chat for
+  // connectors the agent added and skills downloaded from a URL.
+  // ---------------------------------------------------------------------------
+
+  function extRow(title, detail, state, buttons) {
+    var row = document.createElement("div");
+    row.className = "ext-row";
+    var text = document.createElement("div");
+    var name = document.createElement("strong");
+    name.textContent = title;
+    if (state) { var tag = document.createElement("span"); tag.className = "ext-state"; tag.textContent = state; name.appendChild(tag); }
+    var small = document.createElement("small");
+    small.textContent = detail || "";
+    small.title = detail || "";
+    text.appendChild(name);
+    text.appendChild(small);
+    var actions = document.createElement("div");
+    actions.className = "ext-actions";
+    buttons.forEach(function (b) {
+      var button = document.createElement("button");
+      button.type = "button";
+      button.textContent = b.label;
+      if (b.primary) { button.className = "primary"; }
+      button.addEventListener("click", function (event) { event.stopPropagation(); try { b.action(); } catch (error) { showBanner(error.message); } renderExtensions(); });
+      actions.appendChild(button);
+    });
+    row.appendChild(text);
+    row.appendChild(actions);
+    return row;
+  }
+
+  function renderExtensions() {
+    var bar = document.getElementById("approvalBar");
+    var skillList = document.getElementById("skillList");
+    var connectorList = document.getElementById("connectorList");
+    if (!extensions) {
+      skillList.innerHTML = '<div class="ext-empty">Available inside the installed ' + HOST.name + ' panel.</div>';
+      return;
+    }
+    var pending;
+    try { pending = extensions.pending(); } catch (error) { pending = []; }
+    bar.innerHTML = "";
+    bar.hidden = pending.length === 0;
+    if (pending.length) {
+      var intro = document.createElement("div");
+      intro.textContent = "The agent wants to add " + (pending.length === 1 ? "this" : "these") + ". Approve only what you trust: connectors run programs on this computer.";
+      bar.appendChild(intro);
+      pending.forEach(function (item) {
+        bar.appendChild(extRow((item.kind === "connector" ? "Connector: " : "Skill: ") + item.name, item.detail || item.description, "", [
+          { label: "Approve", primary: true, action: function () { extensions.approve(item.kind, item.name, true); } },
+          { label: "Reject", action: function () { extensions.approve(item.kind, item.name, false); } }
+        ]));
+      });
+    }
+    skillList.innerHTML = "";
+    var skills = extensions.listSkills();
+    if (!skills.length) { skillList.innerHTML = '<div class="ext-empty">No skills yet. Try: “create a skill with my naming conventions”.</div>'; }
+    skills.forEach(function (skill) {
+      var buttons = skill.state === "pending" ? [{ label: "Approve", primary: true, action: function () { extensions.approve("skill", skill.name, true); } }] :
+        [{ label: skill.state === "enabled" ? "Turn off" : "Turn on", action: function () { extensions.setSkillState(skill.name, skill.state === "enabled" ? "disabled" : "enabled"); } }];
+      buttons.push({ label: "Delete", action: function () { extensions.deleteSkill(skill.name); } });
+      skillList.appendChild(extRow(skill.title, skill.description, skill.state === "enabled" ? "" : skill.state, buttons));
+    });
+    connectorList.innerHTML = "";
+    var connectors = extensions.loadConnectors();
+    var names = Object.keys(connectors);
+    if (!names.length) { connectorList.innerHTML = '<div class="ext-empty">No connectors yet.</div>'; }
+    names.forEach(function (name) {
+      var c = connectors[name];
+      var buttons = c.state === "pending" ? [{ label: "Approve", primary: true, action: function () { extensions.approve("connector", name, true); } }] :
+        [{ label: c.state === "enabled" ? "Turn off" : "Turn on", action: function () { extensions.setConnectorState(name, c.state === "enabled" ? "disabled" : "enabled"); } }];
+      buttons.push({ label: "Remove", action: function () { extensions.removeConnector(name); } });
+      connectorList.appendChild(extRow(name, (c.description ? c.description + " · " : "") + (c.url || [c.command].concat(c.args || []).join(" ")), c.state === "enabled" ? "" : c.state, buttons));
+    });
+  }
+
+  function wireExtensions() {
+    var status = document.getElementById("extStatus");
+    function say(text) { status.textContent = text; }
+    document.getElementById("importSkill").addEventListener("click", function () { document.getElementById("skillFile").click(); });
+    document.getElementById("skillFile").addEventListener("change", function () {
+      var file = this.files && this.files[0];
+      this.value = "";
+      if (!file || !extensions) { return; }
+      try { say("Imported skill “" + extensions.importSkillFile(file.path) + "”."); } catch (error) { say(error.message); }
+      renderExtensions();
+    });
+    document.getElementById("installSkill").addEventListener("click", function () {
+      var url = document.getElementById("skillUrl").value.trim();
+      if (!url || !extensions) { return; }
+      say("Downloading…");
+      extensions.installSkillFromUrl(url).then(function (result) {
+        // The user typed this URL themselves, so it does not need a second approval.
+        extensions.setSkillState(result.name, "enabled");
+        say("Installed skill “" + result.name + "”.");
+        document.getElementById("skillUrl").value = "";
+        renderExtensions();
+      }, function (error) { say(error.message); });
+    });
+    document.getElementById("addConnector").addEventListener("click", function () {
+      if (!extensions) { return; }
+      try {
+        var spec = JSON.parse(document.getElementById("connectorJson").value);
+        var added = extensions.addConnector(spec, "user");
+        say("Connector “" + added.name + "” added. It is available from the next message.");
+        document.getElementById("connectorJson").value = "";
+      } catch (error) { say("Could not add it: " + error.message); }
+      renderExtensions();
+    });
+    renderExtensions();
+    // Other Soma programs share these files; pick up their changes.
+    setInterval(renderExtensions, 15000);
+  }
+
   function renderReferences() {
     var list = elements.referenceList;
     list.innerHTML = "";
@@ -3153,6 +3286,7 @@
   var savedAccent = readPreference("aeAgent.accent", defaultAccent);
   applyAccent(savedAccent === "#d97757" ? defaultAccent : savedAccent) || applyAccent(defaultAccent);
   resizePrompt();
+  wireExtensions();
   bootstrap();
   setTimeout(checkHubUpdate, 20000);
   setInterval(checkHubUpdate, 10 * 60 * 1000);

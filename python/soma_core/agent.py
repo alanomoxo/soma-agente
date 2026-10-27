@@ -23,9 +23,9 @@ import time
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from . import system
+from . import extensions, system
 
-VERSION = "1.5.1"
+VERSION = "1.6.0"
 CLAUDE_EFFORTS = ["low", "medium", "high", "xhigh", "max"]
 CLAUDE_MODELS = [
     {"id": "default", "model": None, "name": "Claude (default)", "efforts": [], "effort": None},
@@ -174,9 +174,14 @@ class McpServer:
         if method == "ping":
             return reply({})
         if method == "tools/list":
-            return reply({"tools": self.agent.host.tools})
+            return reply({"tools": list(self.agent.host.tools) + extensions.TOOLS})
         if method == "tools/call":
-            result = self.agent.call_tool_from_mcp(params.get("name"), params.get("arguments") or {}, external)
+            name = params.get("name") or ""
+            if name.startswith("soma_"):
+                # Skills and connectors are files in the data folder: no main thread needed.
+                result = extensions.call(name, params.get("arguments") or {})
+                return reply({"content": [{"type": "text", "text": json.dumps(result, default=str)}], "isError": not result.get("ok")})
+            result = self.agent.call_tool_from_mcp(name, params.get("arguments") or {}, external)
             return reply(result)
         return {"jsonrpc": "2.0", "id": message["id"], "error": {"code": -32601, "message": "Method not supported: %s" % method}}
 
@@ -461,7 +466,7 @@ class Agent:
 
     def _instructions(self):
         extra = (self.settings.get("instructions") or "").strip()
-        return self.host.instructions + ((" Persistent user instructions for every request: " + extra) if extra else "")
+        return self.host.instructions + " " + extensions.instructions() + ((" Persistent user instructions for every request: " + extra) if extra else "")
 
     def _finish(self, error=None):
         self.proc = None
@@ -502,12 +507,14 @@ class Agent:
         with open(prompt_path, "w", encoding="utf-8") as handle:
             handle.write(self._instructions())
         config_path = os.path.join(data_dir, "mcp-config-%s.json" % self.host.id)
-        config = {"mcpServers": {self.host.namespace: {"type": "http", "url": self.mcp.url, "headers": {"Authorization": "Bearer " + self.mcp.token}}}}
+        servers = extensions.claude_servers()
+        servers[self.host.namespace] = {"type": "http", "url": self.mcp.url, "headers": {"Authorization": "Bearer " + self.mcp.token}}
         with open(config_path, "w", encoding="utf-8") as handle:
-            json.dump(config, handle)
+            json.dump({"mcpServers": servers}, handle)
+        allowed = ",".join("mcp__" + name for name in servers)
         args = [self.binary, "-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
                 "--system-prompt-file", prompt_path, "--mcp-config", config_path, "--strict-mcp-config",
-                "--tools", "", "--allowedTools", "mcp__" + self.host.namespace, "--permission-mode", "dontAsk"]
+                "--tools", "", "--allowedTools", allowed, "--permission-mode", "dontAsk"]
         if self.thread_id:
             args += ["--resume", self.thread_id]
         model = self.selected_model()
@@ -556,6 +563,10 @@ class Agent:
                         self.add_message("assistant", block["text"], key=key + message["message"].get("id", "") + ":%d" % index)
                     elif block.get("type") == "tool_use":
                         name = str(block.get("name", "")).replace(prefix, "")
+                        if name.startswith("mcp__"):
+                            # A connector's tool: show it as "<connector>: <tool>".
+                            parts = name.split("__", 2)
+                            name = "%s: %s" % (parts[1], parts[2]) if len(parts) == 3 else name
                         tools[block.get("id")] = name
                         self.add_message("tool", self._tool_label(name, block.get("input") or {}), key=key + str(block.get("id")), state="running", tool=name)
             elif kind == "user" and isinstance((message.get("message") or {}).get("content"), list):
@@ -584,6 +595,7 @@ class Agent:
     def _run_agy(self, text, images, key):
         """Antigravity CLI. It has no per-run MCP option, so it reaches this program
         through the Soma Hub registered in Antigravity's MCP config (server "soma")."""
+        extensions.sync_antigravity()
         if not system.ensure_antigravity_config():
             return "The Soma Hub is not running, so Antigravity cannot reach %s. Reinstall Soma Agente or start “Soma Hub” from the Start menu." % self.host.name
         workspace = os.path.join(system.data_directory(), "antigravity-workspace")
@@ -591,6 +603,7 @@ class Agent:
         prompt = []
         if not self.thread_id:
             prompt.append("<soma_instructions>\n%s\nYou reach %s through the soma MCP server: call get_app_tools with app=\"%s\" once, then call_app_tool with app=\"%s\" for every action. "
+                          "Skills and connectors are managed with the soma_* tools of the same soma server (soma_create_skill, soma_read_skill, soma_add_connector...). "
                           "Other open programs are listed by list_apps if the user asks to combine programs. Do not use the terminal, browser or file-editing tools for work in %s.\n</soma_instructions>"
                           % (self._instructions(), self.host.name, self.host.id, self.host.id, self.host.name))
         for number, path in enumerate(images, 1):
@@ -661,7 +674,7 @@ class Agent:
                 "-c", "mcp_servers.%s.default_tools_approval_mode=\"approve\"" % ns,
                 "-c", "mcp_servers.%s.tool_timeout_sec=3600" % ns,
                 "-c", "approval_policy=\"never\"",
-                "-c", "developer_instructions=" + json.dumps(self._instructions())]
+                "-c", "developer_instructions=" + json.dumps(self._instructions())] + extensions.codex_overrides()
         model = self.selected_model()
         if model["model"]:
             args += ["-m", model["model"]]

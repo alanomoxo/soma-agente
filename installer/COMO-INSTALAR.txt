@@ -1,4 +1,4 @@
-SOMA AGENTE 1.5.1 — COMO INSTALAR
+SOMA AGENTE 1.6.0 — COMO INSTALAR
 Agente de IA (Claude, ChatGPT ou Antigravity) para After Effects, Photoshop, Illustrator,
 Premiere Pro, Blender, Cinema 4D e Figma.
 
@@ -51,6 +51,13 @@ qualquer programa aberto, e cada ação aparece no chat do Soma do programa
 como "Antigravity · …".
 Para usar o Antigravity como IA dentro dos painéis, instale a CLI dele:
   PowerShell:  irm https://antigravity.google/cli/install.ps1 | iex
+
+SKILLS E CONECTORES
+Peça ao agente para criar uma skill ("crie uma skill com minhas convenções
+de nomes") ou para ligar um serviço por MCP. Conectores que o agente
+cadastrar e skills baixadas da internet só funcionam depois que você
+aprova (painel Adobe: aba Skills ou a barra no chat; Blender: quadro no
+painel; Cinema 4D: janela de pergunta; Figma: botões no plugin).
 
 MAC
 Abra Soma-Agente-Mac.zip. Dentro há:

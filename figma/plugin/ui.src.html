@@ -36,6 +36,9 @@
   .welcome { text-align: center; color: #bdbdbd; margin-top: 30px; }
   .welcome svg { width: 56px; height: 56px; filter: drop-shadow(0 10px 26px rgba(231,14,119,.28)); }
   .welcome h2 { color: var(--text); margin: 10px 0 4px; font-size: 18px; }
+  #pending .ask { margin: 8px 12px 0; padding: 9px; border: 1px solid rgba(244,131,61,.55); border-radius: 10px; background: rgba(244,131,61,.09); font-size: 11px; }
+  #pending .ask small { display: block; color: var(--muted); margin: 3px 0 6px; word-break: break-all; }
+  #pending .ask button { margin-right: 6px; }
   .offline { margin: 12px; padding: 10px; border: 1px solid rgba(255,98,109,.45); border-radius: 10px; background: rgba(255,98,109,.08); color: #ffd3d6; display: none; }
   footer { padding: 8px 12px 12px; border-top: 1px solid var(--line); }
   #attached { color: var(--muted); font-size: 11px; margin-bottom: 4px; }
@@ -65,6 +68,7 @@
     <button class="ghost" id="newChat" title="New chat">New</button>
   </div>
   <div class="status" id="status"><span class="dot"></span><span id="statusText">Connecting to Soma…</span><button class="ghost" id="connect" hidden>Connect</button></div>
+  <div id="pending"></div>
   <div class="offline" id="offline">Soma Agente is not running on this computer. It starts automatically when you log in to Windows; you can also open “Soma Agente para Figma” from the Start menu. This panel reconnects by itself.</div>
   <div id="log"></div>
   <footer>
@@ -129,6 +133,24 @@
     el("connect").hidden = !!state.signedIn;
     el("send").textContent = state.busy ? "■" : "↑";
     el("send").classList.toggle("busy", state.busy);
+    var pending = el("pending");
+    pending.innerHTML = "";
+    (state.pending || []).forEach(function (item) {
+      var box = document.createElement("div");
+      box.className = "ask";
+      box.textContent = "The agent wants to add a " + item.kind + ": " + item.name;
+      var small = document.createElement("small");
+      small.textContent = (item.detail || item.description) + (item.kind === "connector" ? " — connectors run programs on this computer." : "");
+      box.appendChild(small);
+      [["Approve", true], ["Reject", false]].forEach(function (choice) {
+        var button = document.createElement("button");
+        button.className = "ghost";
+        button.textContent = choice[0];
+        button.onclick = function () { post("/extensions/approve", { kind: item.kind, name: item.name, accept: choice[1] }); };
+        box.appendChild(button);
+      });
+      pending.appendChild(box);
+    });
     var log = el("log");
     var atBottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 30;
     log.innerHTML = "";

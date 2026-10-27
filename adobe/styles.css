@@ -1060,3 +1060,16 @@ textarea::placeholder { color: #777; }
 .provider-switch button:hover { color: var(--text); }
 .provider-switch button[aria-pressed="true"] { background: var(--soma-gradient); color: #fff; }
 .provider-switch.large button { padding: 9px; font-size: 12px; }
+/* Skills & connectors ----------------------------------------------------- */
+.ext-list { display: grid; gap: 6px; margin: 8px 0 10px; }
+.ext-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.025); }
+.ext-row strong { font-size: 11px; }
+.ext-row small { display: block; overflow: hidden; color: var(--muted); font-size: 9.5px; text-overflow: ellipsis; white-space: nowrap; }
+.ext-row .ext-actions { display: flex; gap: 4px; }
+.ext-row .ext-actions button { padding: 4px 8px; border: 1px solid var(--line); border-radius: 7px; background: #1c1c1c; color: var(--text); font-size: 10px; cursor: pointer; }
+.ext-row .ext-actions button.primary { border-color: transparent; background: var(--soma-gradient); color: #fff; }
+.ext-state { margin-left: 6px; color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .06em; }
+.ext-empty { color: var(--muted); font-size: 10px; }
+#connectorJson, #skillUrl { width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 8px; background: #111; color: var(--text); padding: 7px; font: 10px/1.4 ui-monospace, Consolas, monospace; }
+.approval-bar { z-index: 2; flex: 0 0 auto; display: grid; gap: 6px; margin: 8px 10px 0; padding: 9px 11px; border: 1px solid rgba(244, 131, 61, .55); border-radius: 10px; background: rgba(244, 131, 61, .09); font-size: 11px; }
+.approval-bar .ext-row { background: rgba(0,0,0,.25); }

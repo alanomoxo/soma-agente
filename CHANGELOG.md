@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.0
+- Skills (SKILL.md) e conectores MCP em todos os programas, com Claude, ChatGPT e Antigravity.
+- O agente cria skills, instala skills do GitHub e cadastra conectores; conectores e skills baixadas esperam aprovação do usuário.
+- Aba Skills no painel Adobe e aprovação no Blender, Cinema 4D e Figma.
+
 ## 1.5.1
 - O instalador consulta o GitHub ao abrir: se houver versão mais nova, baixa, confere o SHA-256 e instala a mais recente.
 

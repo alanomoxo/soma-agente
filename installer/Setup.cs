@@ -26,15 +26,15 @@ using Microsoft.Win32;
 
 [assembly: AssemblyTitle("Soma Agente - Instalador")]
 [assembly: AssemblyProduct("Soma Agente")]
-[assembly: AssemblyVersion("1.5.1.0")]
-[assembly: AssemblyFileVersion("1.5.1.0")]
+[assembly: AssemblyVersion("1.6.0.0")]
+[assembly: AssemblyFileVersion("1.6.0.0")]
 
 namespace Soma
 {
     static class Paths
     {
         public const string BundleId = "com.framepilot.aeagent";
-        public const string Version = "1.5.1";
+        public const string Version = "1.6.0";
         // SOMA_TEST_ROOT redirects every write (files and registry) for testing.
         public static readonly string TestRoot = Environment.GetEnvironmentVariable("SOMA_TEST_ROOT");
         public static string Roaming { get { return TestRoot != null ? Path.Combine(TestRoot, "Roaming") : Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); } }
@@ -518,7 +518,7 @@ namespace Soma
     // and CLI, and lets the headless CLI use only its three tools.
     static class Antigravity
     {
-        static readonly string[] Rules = { "mcp(soma/list_apps)", "mcp(soma/get_app_tools)", "mcp(soma/call_app_tool)" };
+        static readonly string[] Rules = { "mcp(soma/*)" };
 
         static string Gemini { get { return Paths.TestRoot != null ? Path.Combine(Paths.TestRoot, "gemini") : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".gemini"); } }
         static string[] McpFiles { get { return new[] { Path.Combine(Gemini, @"config\mcp_config.json"), Path.Combine(Gemini, @"antigravity\mcp_config.json") }; } }

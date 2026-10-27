@@ -163,7 +163,7 @@ def ensure_antigravity_config():
     return True
 
 
-SOMA_TOOL_RULES = ["mcp(soma/list_apps)", "mcp(soma/get_app_tools)", "mcp(soma/call_app_tool)"]
+SOMA_TOOL_RULES = ["mcp(soma/*)"]
 
 
 def _allow_soma_tools():

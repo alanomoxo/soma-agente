@@ -4,7 +4,7 @@ sidebar (N panel > Soma) and let it edit the scene."""
 bl_info = {
     "name": "Soma Agente",
     "author": "Soma",
-    "version": (1, 5, 1),
+    "version": (1, 6, 0),
     "blender": (4, 2, 0),
     "location": "3D View > Sidebar (N) > Soma",
     "description": "AI agent (Claude or ChatGPT) that edits your scene from a chat",
@@ -18,7 +18,7 @@ import bpy
 from bpy.props import CollectionProperty, EnumProperty, StringProperty
 from bpy.types import Operator, Panel, PropertyGroup
 
-from .soma_core import Agent
+from .soma_core import Agent, extensions
 from .host import BlenderHost
 
 _state = {"agent": None, "revision": -1, "model_items": [], "effort_items": []}
@@ -200,6 +200,19 @@ class SOMA_OT_clear_attachments(Operator):
         return {"FINISHED"}
 
 
+class SOMA_OT_approve(Operator):
+    bl_idname = "soma.approve"
+    bl_label = "Approve"
+    bl_description = "Approve or reject a connector or skill the agent wants to add"
+    kind: StringProperty()
+    name: StringProperty()
+    accept: bpy.props.BoolProperty(default=True)
+
+    def execute(self, context):
+        extensions.approve(self.kind, self.name, self.accept)
+        return {"FINISHED"}
+
+
 class SOMA_OT_open_chat(Operator):
     bl_idname = "soma.open_chat"
     bl_label = "Full chat as text"
@@ -238,6 +251,20 @@ class SOMA_PT_chat(Panel):
         row.prop(wm, "soma_model", text="")
         if a.selected_model()["efforts"]:
             row.prop(wm, "soma_effort", text="")
+
+        try:
+            pending = extensions.pending()
+        except Exception:  # noqa: BLE001 - never break the panel
+            pending = []
+        for item in pending:
+            ask = layout.box()
+            ask.label(text="Agent wants to add a %s: %s" % (item["kind"], item["name"]), icon="QUESTION")
+            ask.label(text=(item["detail"] or item["description"])[:70])
+            row = ask.row(align=True)
+            yes = row.operator("soma.approve", text="Approve", icon="CHECKMARK")
+            yes.kind, yes.name, yes.accept = item["kind"], item["name"], True
+            no = row.operator("soma.approve", text="Reject", icon="X")
+            no.kind, no.name, no.accept = item["kind"], item["name"], False
 
         box = layout.box()
         status = box.row()
@@ -288,7 +315,7 @@ class SOMA_PT_chat(Panel):
         row.operator("soma.open_chat", text="", icon="TEXT")
 
 
-CLASSES = (SomaAttachment, SOMA_OT_send, SOMA_OT_stop, SOMA_OT_new_chat, SOMA_OT_connect, SOMA_OT_check,
+CLASSES = (SomaAttachment, SOMA_OT_approve, SOMA_OT_send, SOMA_OT_stop, SOMA_OT_new_chat, SOMA_OT_connect, SOMA_OT_check,
            SOMA_OT_attach, SOMA_OT_clear_attachments, SOMA_OT_open_chat, SOMA_PT_chat)
 
 

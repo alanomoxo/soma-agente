@@ -27,7 +27,7 @@ def log(text):
 
 
 try:
-    from soma_core import Agent  # noqa: E402
+    from soma_core import Agent, extensions  # noqa: E402
     from soma_c4d_host import C4DHost  # noqa: E402
     LOAD_ERROR = None
 except Exception:  # noqa: BLE001 - shown in the dialog instead of a silent missing plugin
@@ -103,6 +103,19 @@ class SomaDialog(gui.GeDialog):
         self.safely(lambda: self.refresh(force=True))
         return True
 
+    def ask_pending(self):
+        """Connectors the agent added (and downloaded skills) need the user's OK."""
+        asked = getattr(self, "asked", set())
+        self.asked = asked
+        for item in extensions.pending():
+            key = item["kind"] + ":" + item["name"]
+            if key in asked:
+                continue
+            asked.add(key)
+            question = ("Soma Agente: the agent wants to add a %s.\n\n%s\n%s\n\nConnectors run programs on this computer. Approve?"
+                        % (item["kind"], item["name"], item["detail"] or item["description"]))
+            extensions.approve(item["kind"], item["name"], gui.QuestionDialog(question))
+
     def safely(self, action):
         """Runs dialog work; a failure is logged and shown instead of breaking the panel."""
         try:
@@ -172,6 +185,7 @@ class SomaDialog(gui.GeDialog):
         def tick():
             agent().pump()
             self.refresh()
+            self.ask_pending()
         self.safely(tick)
 
     # -------------------------------------------------------------- input

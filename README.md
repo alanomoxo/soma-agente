@@ -12,6 +12,7 @@ O projeto é livre e feito para ajudar a comunidade de motion design, 3D e desig
 - **Você escolhe a IA:** Claude (Claude Code), ChatGPT (Codex) ou Antigravity (CLI `agy`), sempre com a **sua** conta. Nenhuma chave de API é guardada pelo Soma.
 - **Voz, imagens, vídeos e referências:** grave o pedido no microfone (transcrição local com whisper.cpp), anexe imagens e vídeos de referência.
 - **Eases precisos** no After Effects (cubic-bezier, presets Expo, Back, etc.).
+- **Skills e conectores:** ensine fluxos ao agente com skills (`SKILL.md`) e ligue outros serviços por MCP (Notion, Google Drive, bancos de dados, ferramentas locais). O próprio agente pode criar skills, instalar skills do GitHub e cadastrar conectores, e tudo vale para todos os programas.
 - **Soma Hub + Antigravity:** um servidor MCP local que deixa o Antigravity comandar todos os programas abertos de uma vez (por exemplo: renderizar no Blender, montar no Photoshop e animar no After Effects).
 - **Atualização automática:** o Soma Hub verifica as [Releases](../../releases) deste repositório e instala as versões novas sozinho.
 
@@ -46,6 +47,12 @@ O instalador coloca o **Soma Hub**, que inicia com o Windows. A cada poucas hora
 3. guarda a versão anterior em backup.
 
 Para desligar: crie o arquivo `%APPDATA%\AE Agent\auto-update-off.txt`.
+
+## Skills e conectores
+
+- **Skills** ficam em `%APPDATA%\AE Agent\skills\<nome>\SKILL.md`, no formato aberto de Agent Skills (front matter com `name` e `description`, depois as instruções). O agente vê a lista e lê a skill quando o pedido combinar. Peça "crie uma skill com minhas convenções de nomes" ou "instale a skill https://github.com/…/tree/main/skills/…".
+- **Conectores** são servidores MCP (`command` + `args` para stdio, ou `url` + `headers` para HTTP), em `%APPDATA%\AE Agent\connectors.json`. Funcionam com Claude, ChatGPT (Codex) e Antigravity.
+- **Segurança:** conectores executam programas no seu PC. Os que o agente cadastrar, e as skills baixadas da internet, ficam pendentes até você aprovar no painel (aba **Skills** ou a barra de aprovação no chat; no Cinema 4D aparece uma pergunta; no Blender, um quadro no painel).
 
 ## Como funciona
 

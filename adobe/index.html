@@ -30,6 +30,7 @@
       </header>
 
       <section id="systemBanner" class="system-banner" hidden></section>
+      <section id="approvalBar" class="approval-bar" hidden aria-live="polite"></section>
 
       <section id="progressPanel" class="progress-panel" hidden aria-live="polite">
         <div class="progress-copy">
@@ -141,7 +142,7 @@
         <div class="composer-meta">
           <span id="connectionLabel">Local bridge</span>
           <span>Return to send · Shift+Return for a new line</span>
-          <span id="versionLabel" class="version-label">v1.5.1</span>
+          <span id="versionLabel" class="version-label">v1.6.0</span>
         </div>
       </footer>
         </div>
@@ -177,6 +178,7 @@
       <nav class="settings-tabs" aria-label="Settings sections">
         <button type="button" data-settings-tab="agent" aria-pressed="true" title="Connection and persistent instructions">Agent</button>
         <button type="button" data-settings-tab="media" aria-pressed="false" title="Voice transcription and video analysis">Voice &amp; video</button>
+        <button type="button" data-settings-tab="extensions" aria-pressed="false" title="Skills and MCP connectors shared by every Soma program">Skills</button>
         <button class="legacy-tools-only" type="button" data-settings-tab="tools" aria-pressed="false" title="Stored tools, previews, and exports">Tools</button>
         <button type="button" data-settings-tab="appearance" aria-pressed="false" title="Accent color and dock layout">Appearance</button>
       </nav>
@@ -256,6 +258,21 @@
         </section>
         <div class="diagnostic-actions"><button id="checkMedia" type="button" class="tool-secondary">Check again</button><button id="openMediaFolder" type="button" class="tool-secondary">Open folder</button></div>
       </div>
+      <div data-settings-page="extensions" hidden>
+        <h3>Skills</h3>
+        <p>Reusable instructions (SKILL.md) the agent follows when a request matches, in every Soma program. Ask the agent to create one, or add your own.</p>
+        <div id="skillList" class="ext-list"></div>
+        <div class="diagnostic-actions"><button id="importSkill" type="button" class="tool-secondary" title="Pick a SKILL.md file (its folder is copied)">Import SKILL.md…</button></div>
+        <input id="skillFile" type="file" accept=".md" hidden />
+        <label class="setting-field">Install from a URL (SKILL.md or GitHub folder)<input id="skillUrl" spellcheck="false" placeholder="https://github.com/owner/repo/tree/main/skills/name" /></label>
+        <button id="installSkill" type="button" class="tool-secondary">Install skill</button>
+        <h3>Connectors (MCP)</h3>
+        <p>Other MCP servers the AI can use next to this program: Notion, Google Drive, databases, local tools… A connector runs a program on this computer, so connectors added by the agent wait for your approval.</p>
+        <div id="connectorList" class="ext-list"></div>
+        <label class="setting-field">Add a connector (JSON)<textarea id="connectorJson" rows="5" spellcheck="false" placeholder="{ &quot;name&quot;: &quot;notion&quot;, &quot;command&quot;: &quot;npx&quot;, &quot;args&quot;: [&quot;-y&quot;, &quot;@notionhq/notion-mcp-server&quot;], &quot;env&quot;: { &quot;NOTION_TOKEN&quot;: &quot;…&quot; } }&#10;or { &quot;name&quot;: &quot;my-api&quot;, &quot;url&quot;: &quot;https://…/mcp&quot;, &quot;headers&quot;: { &quot;Authorization&quot;: &quot;Bearer …&quot; } }"></textarea></label>
+        <button id="addConnector" type="button" class="tool-secondary">Add connector</button>
+        <p id="extStatus" role="status"></p>
+      </div>
       <div class="legacy-tools-only" data-settings-page="tools" hidden>
         <h3>Tool library</h3><p id="toolStoragePath"></p>
         <div class="tool-customize-row"><button id="openToolsFolder" type="button" class="tool-secondary" title="Show the stored tool definitions in Finder">Open folder</button><button id="openExportsFolder" type="button" class="tool-secondary" title="Show exported JSX panels and JSON definitions">Open exports</button></div>
@@ -285,6 +302,7 @@
     <script src="js/media.js"></script>
     <script src="js/references.js"></script>
     <script src="js/eases.js"></script>
+    <script src="js/extensions.js"></script>
     <script src="js/hosts.js"></script>
     <script src="js/hosts/aftereffects.js"></script>
     <script src="js/hosts/photoshop.js"></script>
