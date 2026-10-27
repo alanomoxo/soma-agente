@@ -520,7 +520,7 @@
       return Promise.resolve(reply({
         protocolVersion: params.protocolVersion || "2025-06-18",
         capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: MCP_SERVER_NAME, title: "Soma Agente", version: "1.5.0" }
+        serverInfo: { name: MCP_SERVER_NAME, title: "Soma Agente", version: "1.5.1" }
       }));
     }
     if (message.method === "ping") {

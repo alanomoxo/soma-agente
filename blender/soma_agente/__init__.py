@@ -4,7 +4,7 @@ sidebar (N panel > Soma) and let it edit the scene."""
 bl_info = {
     "name": "Soma Agente",
     "author": "Soma",
-    "version": (1, 5, 0),
+    "version": (1, 5, 1),
     "blender": (4, 2, 0),
     "location": "3D View > Sidebar (N) > Soma",
     "description": "AI agent (Claude or ChatGPT) that edits your scene from a chat",

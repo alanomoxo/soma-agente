@@ -16,7 +16,9 @@ using System.Drawing.Drawing2D;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Net;
 using System.Reflection;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows.Forms;
@@ -24,15 +26,15 @@ using Microsoft.Win32;
 
 [assembly: AssemblyTitle("Soma Agente - Instalador")]
 [assembly: AssemblyProduct("Soma Agente")]
-[assembly: AssemblyVersion("1.5.0.0")]
-[assembly: AssemblyFileVersion("1.5.0.0")]
+[assembly: AssemblyVersion("1.5.1.0")]
+[assembly: AssemblyFileVersion("1.5.1.0")]
 
 namespace Soma
 {
     static class Paths
     {
         public const string BundleId = "com.framepilot.aeagent";
-        public const string Version = "1.5.0";
+        public const string Version = "1.5.1";
         // SOMA_TEST_ROOT redirects every write (files and registry) for testing.
         public static readonly string TestRoot = Environment.GetEnvironmentVariable("SOMA_TEST_ROOT");
         public static string Roaming { get { return TestRoot != null ? Path.Combine(TestRoot, "Roaming") : Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); } }
@@ -602,6 +604,59 @@ namespace Soma
         }
     }
 
+    // Latest Release of the Soma Agente repository (same source as the Soma Hub updater).
+    class GitHubRelease
+    {
+        const string Repository = "alanomoxo/soma-agente";
+        const string Asset = "Soma-Agente-Instalador.exe";
+        public string Version, InstallerUrl, ShaUrl;
+
+        static byte[] Get(string url)
+        {
+            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
+            using (var client = new WebClient())
+            {
+                client.Headers[HttpRequestHeader.UserAgent] = "SomaAgente-Installer/" + Paths.Version;
+                return client.DownloadData(url);
+            }
+        }
+
+        public static GitHubRelease Latest()
+        {
+            string json = Encoding.UTF8.GetString(Get("https://api.github.com/repos/" + Repository + "/releases/latest"));
+            var release = new System.Web.Script.Serialization.JavaScriptSerializer().Deserialize<Dictionary<string, object>>(json);
+            var result = new GitHubRelease { Version = Convert.ToString(release["tag_name"]).TrimStart('v', 'V') };
+            foreach (object item in (System.Collections.ArrayList)release["assets"])
+            {
+                var asset = (Dictionary<string, object>)item;
+                string name = Convert.ToString(asset["name"]);
+                if (name == Asset) { result.InstallerUrl = Convert.ToString(asset["browser_download_url"]); }
+                if (name == Asset + ".sha256") { result.ShaUrl = Convert.ToString(asset["browser_download_url"]); }
+            }
+            return result.InstallerUrl != null && result.ShaUrl != null ? result : null;
+        }
+
+        public static int Compare(string a, string b)
+        {
+            System.Version va, vb;
+            if (!System.Version.TryParse(a, out va) || !System.Version.TryParse(b, out vb)) { return 0; }
+            return va.CompareTo(vb);
+        }
+
+        // Downloads the installer to %TEMP% and returns its path, only if its SHA-256 matches.
+        public string Download()
+        {
+            string expected = Encoding.UTF8.GetString(Get(ShaUrl)).Trim().Split(' ', '\t', '\n')[0].ToLowerInvariant();
+            byte[] data = Get(InstallerUrl);
+            string actual;
+            using (var sha = System.Security.Cryptography.SHA256.Create()) { actual = string.Concat(sha.ComputeHash(data).Select(b => b.ToString("x2"))); }
+            if (actual != expected) { throw new InvalidDataException("o arquivo baixado não confere com o SHA-256 publicado"); }
+            string file = Path.Combine(Path.GetTempPath(), "Soma-Agente-Instalador-" + Version + ".exe");
+            File.WriteAllBytes(file, data);
+            return file;
+        }
+    }
+
     // Rounded button filled with the Soma gradient.
     class GradientButton : Control
     {
@@ -733,7 +788,7 @@ namespace Soma
             Controls.Add(root);
             root.Resize += delegate { FitText(); };
             ResumeLayout(false);
-            Shown += delegate { FitText(); Reload(); };
+            Shown += delegate { FitText(); Reload(); CheckGitHub(); };
         }
 
         int ContentWidth { get { return Math.Max(100, root.ClientSize.Width - root.Padding.Horizontal); } }
@@ -902,6 +957,45 @@ namespace Soma
             }
         }
 
+        // When a newer version is published on GitHub, this installer downloads
+        // it, checks its SHA-256 and hands over to it, so an old copy of the
+        // installer always installs the latest Soma Agente.
+        void CheckGitHub()
+        {
+            if (Program.NoSelfUpdate) { return; }
+            var worker = new Thread(delegate ()
+            {
+                try
+                {
+                    GitHubRelease latest = GitHubRelease.Latest();
+                    if (latest == null || GitHubRelease.Compare(latest.Version, Paths.Version) <= 0) { return; }
+                    BeginInvoke((Action)delegate
+                    {
+                        installButton.Enabled = false;
+                        status.ForeColor = Amber;
+                        status.Text = "Baixando a versão " + latest.Version + " do GitHub…";
+                    });
+                    string file = latest.Download();
+                    BeginInvoke((Action)delegate
+                    {
+                        Process.Start(new ProcessStartInfo(file, "/no-self-update") { UseShellExecute = false });
+                        Close();
+                    });
+                }
+                catch (Exception ex)
+                {
+                    BeginInvoke((Action)delegate
+                    {
+                        installButton.Enabled = true;
+                        status.ForeColor = Dim;
+                        status.Text = "Não foi possível verificar o GitHub (" + ex.Message + "). Instalando a versão " + Paths.Version + ".";
+                    });
+                }
+            });
+            worker.IsBackground = true;
+            worker.Start();
+        }
+
         static void Open(string target)
         {
             try { Process.Start(new ProcessStartInfo(target) { UseShellExecute = true }); } catch { }
@@ -931,9 +1025,13 @@ namespace Soma
             foreach (var entry in all) { entry.Key.Font = new Font(entry.Value.FontFamily, entry.Value.Size * scale, entry.Value.Style); }
         }
 
+        // Set when started by an older installer that already fetched this one from GitHub.
+        public static bool NoSelfUpdate;
+
         [STAThread]
         static int Main(string[] args)
         {
+            NoSelfUpdate = args.Any(a => a.Equals("/no-self-update", StringComparison.OrdinalIgnoreCase)) || Environment.GetEnvironmentVariable("SOMA_NO_SELF_UPDATE") == "1";
             // /silent [/apps=aftereffects,blender,...] installs without the window; /uninstall removes.
             try
             {

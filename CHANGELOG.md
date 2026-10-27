@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.5.1
+- O instalador consulta o GitHub ao abrir: se houver versão mais nova, baixa, confere o SHA-256 e instala a mais recente.
+
 ## 1.5.0
 - Código aberto no GitHub (licença MIT).
 - Atualização automática: o Soma Hub instala as novas Releases deste repositório (com verificação SHA-256), esperando os programas Adobe fecharem.

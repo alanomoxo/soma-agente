@@ -35,14 +35,22 @@ Set-Version "installer\COMO-INSTALAR.txt" 'SOMA AGENTE \d+\.\d+\.\d+' "SOMA AGEN
 
 & (Join-Path $PSScriptRoot "build.ps1")
 
-git add -A
-git commit -m "Release v$Version"
-git tag "v$Version"
-git push origin HEAD --tags
+# git and gh print progress and warnings on stderr; judge them by exit code only.
+function Invoke-Tool([string]$exe, [string[]]$arguments) {
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try { & $exe @arguments 2>&1 | ForEach-Object { "$_" } } finally { $ErrorActionPreference = $previous }
+    if ($LASTEXITCODE -ne 0) { throw "$exe $($arguments -join ' ') failed ($LASTEXITCODE)" }
+}
+
+Invoke-Tool git @("add", "-A")
+Invoke-Tool git @("commit", "-m", "Release v$Version")
+Invoke-Tool git @("tag", "v$Version")
+Invoke-Tool git @("push", "origin", "HEAD", "--tags")
 
 if (-not $Notes) { $Notes = "Soma Agente $Version" }
 $dist = Join-Path $root "dist"
-gh release create "v$Version" `
-    (Join-Path $dist "Soma-Agente-Instalador.exe") (Join-Path $dist "Soma-Agente-Instalador.exe.sha256") (Join-Path $dist "Soma-Agente-Mac.zip") `
-    --title "Soma Agente $Version" --notes $Notes
+Invoke-Tool gh @("release", "create", "v$Version",
+    (Join-Path $dist "Soma-Agente-Instalador.exe"), (Join-Path $dist "Soma-Agente-Instalador.exe.sha256"), (Join-Path $dist "Soma-Agente-Mac.zip"),
+    "--title", "Soma Agente $Version", "--notes", $Notes)
 Write-Host "Published v$Version. Installed Soma Hubs update within a few hours."
