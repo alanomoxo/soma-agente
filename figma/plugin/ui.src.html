@@ -1,0 +1,203 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  :root {
+    --bg: #0a0a0a; --panel: #151515; --line: #2b2b2b; --text: #f4f4f4; --muted: #9a9a9a;
+    --pink: #e70e77; --grad: linear-gradient(135deg, #f4833d 0%, #e70e77 50%, #6c0dc1 95%);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 12px/1.5 Inter, system-ui, sans-serif; }
+  body { display: flex; flex-direction: column; background: radial-gradient(circle at 100% -10%, rgba(231,14,119,.16), transparent 34%), radial-gradient(circle at -10% 110%, rgba(108,13,193,.14), transparent 36%), var(--bg); }
+  header { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  header svg.mark { width: 26px; height: 26px; }
+  header .title { font-weight: 700; font-size: 13px; }
+  header .title small { color: var(--muted); font-weight: 500; margin-left: 4px; }
+  header .spacer { flex: 1; }
+  .switch { display: flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 9px; background: #111; }
+  .switch button { border: 0; border-radius: 7px; padding: 4px 8px; background: transparent; color: var(--muted); font: inherit; font-weight: 650; cursor: pointer; }
+  .switch button[aria-pressed="true"] { background: var(--grad); color: #fff; }
+  .bar { display: flex; gap: 6px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+  select { flex: 1; min-width: 0; background: #1a1a1a; color: var(--text); border: 1px solid var(--line); border-radius: 7px; padding: 4px 6px; font: inherit; }
+  .status { padding: 6px 12px; color: var(--muted); font-size: 11px; display: flex; gap: 6px; align-items: center; }
+  .status .dot { width: 7px; height: 7px; border-radius: 50%; background: #666; }
+  .status.ready .dot { background: #52d98b; box-shadow: 0 0 8px rgba(82,217,139,.5); }
+  .status.error .dot { background: #ff626d; }
+  .status button { margin-left: auto; }
+  #log { flex: 1; overflow-y: auto; padding: 10px 12px 16px; }
+  .msg { margin: 0 0 10px; white-space: pre-wrap; word-wrap: break-word; }
+  .msg.user { margin-left: auto; width: fit-content; max-width: 90%; padding: 8px 11px; border: 1px solid #333; border-radius: 14px 14px 4px 14px; background: #1d1d1d; }
+  .msg.tool { color: var(--muted); font-size: 11px; margin: 0 0 4px; }
+  .msg.tool.done::before { content: "✓ "; color: #52d98b; }
+  .msg.tool.failed::before { content: "✗ "; color: #ff626d; }
+  .msg.tool.running::before { content: "… "; color: var(--pink); }
+  .msg.error { color: #ffb3b8; }
+  .welcome { text-align: center; color: #bdbdbd; margin-top: 30px; }
+  .welcome svg { width: 56px; height: 56px; filter: drop-shadow(0 10px 26px rgba(231,14,119,.28)); }
+  .welcome h2 { color: var(--text); margin: 10px 0 4px; font-size: 18px; }
+  .offline { margin: 12px; padding: 10px; border: 1px solid rgba(255,98,109,.45); border-radius: 10px; background: rgba(255,98,109,.08); color: #ffd3d6; display: none; }
+  footer { padding: 8px 12px 12px; border-top: 1px solid var(--line); }
+  #attached { color: var(--muted); font-size: 11px; margin-bottom: 4px; }
+  .composer { border: 1px solid var(--line); border-radius: 12px; background: #141414; padding: 6px; }
+  textarea { width: 100%; resize: none; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; min-height: 44px; }
+  .actions { display: flex; gap: 6px; align-items: center; }
+  .actions .spacer { flex: 1; }
+  .ghost { border: 1px solid var(--line); background: #1a1a1a; color: var(--text); border-radius: 8px; padding: 4px 9px; font: inherit; cursor: pointer; }
+  .send { border: 0; border-radius: 999px; width: 30px; height: 30px; background: var(--grad); color: #fff; font-size: 15px; cursor: pointer; }
+  .send.busy { filter: grayscale(.4); }
+</style>
+</head>
+<body>
+  <header>
+    <svg class="mark" viewBox="282 122 148 148">{{MARK}}</svg>
+    <div class="title">SOMA<small>Agente · Figma</small></div>
+    <div class="spacer"></div>
+    <div class="switch">
+      <button data-provider="claude" aria-pressed="true">Claude</button>
+      <button data-provider="chatgpt" aria-pressed="false">ChatGPT</button>
+      <button data-provider="antigravity" aria-pressed="false">Antigravity</button>
+    </div>
+  </header>
+  <div class="bar">
+    <select id="model" title="Model"></select>
+    <select id="effort" title="Reasoning"></select>
+    <button class="ghost" id="newChat" title="New chat">New</button>
+  </div>
+  <div class="status" id="status"><span class="dot"></span><span id="statusText">Connecting to Soma…</span><button class="ghost" id="connect" hidden>Connect</button></div>
+  <div class="offline" id="offline">Soma Agente is not running on this computer. It starts automatically when you log in to Windows; you can also open “Soma Agente para Figma” from the Start menu. This panel reconnects by itself.</div>
+  <div id="log"></div>
+  <footer>
+    <div id="attached"></div>
+    <div class="composer">
+      <textarea id="prompt" placeholder="Message Soma Agente" rows="2"></textarea>
+      <div class="actions">
+        <button class="ghost" id="attach" title="Attach reference images">+ Image</button>
+        <input type="file" id="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden />
+        <div class="spacer"></div>
+        <button class="send" id="send" title="Send">↑</button>
+      </div>
+    </div>
+  </footer>
+<script>
+  var BRIDGE = "http://localhost:47821";
+  var MARK = '{{MARK_JS}}';
+  var num = { type: "number" };
+  function T(name, description, properties, required) {
+    return { name: name, description: description, inputSchema: { type: "object", properties: properties || {}, required: required || [], additionalProperties: false } };
+  }
+  var common = { name: { type: "string" }, x: num, y: num, width: num, height: num, fill: { type: "string", description: "Hex like #E70E77, or none" }, stroke: { type: "string" }, strokeWeight: num, cornerRadius: num, opacity: num, rotation: num, parentId: { type: "string" } };
+  function extend(base, extra) { var out = {}; Object.keys(base).forEach(function (k) { out[k] = base[k]; }); Object.keys(extra || {}).forEach(function (k) { out[k] = extra[k]; }); return out; }
+  var autoLayout = { type: "object", description: "Auto layout: {direction: VERTICAL|HORIZONTAL|NONE, gap, padding, align: MIN|CENTER|MAX|SPACE_BETWEEN, crossAlign: MIN|CENTER|MAX, hug: true}" };
+  var TOOLS = [
+    T("get_document_info", "File name, pages, current page, selection, and the top-level nodes of the current page."),
+    T("list_nodes", "Node tree (default: current page) with id, type, position, size, fills, text and auto layout.", { id: { type: "string" }, depth: { type: "integer", minimum: 0, maximum: 8 } }),
+    T("create_frame", "Create a frame (default 1080×1080, white), optionally with auto layout, inside parentId or on the page.", extend(common, { autoLayout: autoLayout })),
+    T("create_shape", "Create a rectangle, ellipse, line, polygon or star.", extend(common, { shape: { type: "string", enum: ["rectangle", "ellipse", "line", "polygon", "star"] }, sides: { type: "integer" }, points: { type: "integer" } }), ["shape"]),
+    T("create_text", "Create text. Inter is always available (Regular, Medium, Semi Bold, Bold); width makes it wrap.", extend(common, { text: { type: "string" }, fontFamily: { type: "string" }, fontStyle: { type: "string" }, fontSize: num, color: { type: "string" }, align: { type: "string", enum: ["left", "center", "right", "justified"] } }), ["text"]),
+    T("set_properties", "Change a node: name, position, size, rotation, opacity, visibility, fill, stroke, corner radius, auto layout, and for text: text, fontFamily, fontStyle, fontSize, color, align.", extend(common, { id: { type: "string" }, visible: { type: "boolean" }, autoLayout: autoLayout, text: { type: "string" }, fontFamily: { type: "string" }, fontStyle: { type: "string" }, fontSize: num, color: { type: "string" }, align: { type: "string" } }), ["id"]),
+    T("delete_nodes", "Delete nodes.", { ids: { type: "array", items: { type: "string" }, minItems: 1 } }, ["ids"]),
+    T("duplicate_node", "Duplicate a node, optionally offset by dx/dy.", { id: { type: "string" }, dx: num, dy: num, name: { type: "string" } }, ["id"]),
+    T("group_nodes", "Group nodes.", { ids: { type: "array", items: { type: "string" }, minItems: 1 }, name: { type: "string" } }, ["ids"]),
+    T("move_to_parent", "Move a node into another frame/group (optionally at a child index).", { id: { type: "string" }, parentId: { type: "string" }, index: { type: "integer" } }, ["id", "parentId"]),
+    T("place_image", "Place an image file (local path) as an image-filled rectangle.", { path: { type: "string" }, x: num, y: num, width: num, height: num, name: { type: "string" }, parentId: { type: "string" }, scaleMode: { type: "string", enum: ["FILL", "FIT", "CROP", "TILE"] } }, ["path"]),
+    T("select_and_zoom", "Select nodes and zoom the viewport to them.", { ids: { type: "array", items: { type: "string" } } }, ["ids"]),
+    T("export_preview", "Export a node (default: selection) as PNG and return it as an image for visual inspection.", { id: { type: "string" }, maxSize: { type: "integer" }, reason: { type: "string" } }),
+    T("run_plugin_code", "General fallback: run Figma plugin API code (async function body with `figma` in scope). Return a small JSON-safe value.", { summary: { type: "string" }, code: { type: "string" } }, ["summary", "code"])
+  ];
+
+  var el = function (id) { return document.getElementById(id); };
+  var revision = -1, state = null, online = false, images = [], registered = false;
+
+  function post(path, body) {
+    return fetch(BRIDGE + path, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(body || {}) }).then(function (r) { return r.json(); });
+  }
+
+  function render() {
+    if (!state) { return; }
+    document.querySelectorAll("[data-provider]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.provider === state.provider)); });
+    var model = el("model"), effort = el("effort");
+    model.innerHTML = "";
+    state.models.forEach(function (m) { var o = document.createElement("option"); o.value = m.id; o.textContent = m.name; o.selected = m.id === state.model; model.appendChild(o); });
+    var current = state.models.filter(function (m) { return m.id === state.model; })[0] || { efforts: [] };
+    effort.innerHTML = "";
+    effort.hidden = !current.efforts.length;
+    current.efforts.forEach(function (e) { var o = document.createElement("option"); o.value = e; o.textContent = e; o.selected = e === state.effort; effort.appendChild(o); });
+    var status = el("status");
+    status.className = "status " + (state.signedIn ? "ready" : "error");
+    el("statusText").textContent = state.status;
+    el("connect").hidden = !!state.signedIn;
+    el("send").textContent = state.busy ? "■" : "↑";
+    el("send").classList.toggle("busy", state.busy);
+    var log = el("log");
+    var atBottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 30;
+    log.innerHTML = "";
+    if (!state.messages.length) {
+      log.innerHTML = '<div class="welcome"><svg viewBox="282 122 148 148">' + MARK + '</svg><h2>What are we designing?</h2><div>Describe a screen, a post, or a change. I’ll build it in this file and check the result.</div></div>';
+    }
+    state.messages.forEach(function (m) {
+      var div = document.createElement("div");
+      div.className = "msg " + m.role + (m.state ? " " + m.state : "");
+      div.textContent = m.text;
+      log.appendChild(div);
+    });
+    if (atBottom) { log.scrollTop = log.scrollHeight; }
+  }
+
+  function runTools(calls) {
+    calls.forEach(function (call) { parent.postMessage({ pluginMessage: { type: "tool", call: call } }, "*"); });
+  }
+
+  window.onmessage = function (event) {
+    var msg = event.data && event.data.pluginMessage;
+    if (msg && msg.type === "tool-result") { post("/tool-result", { id: msg.id, result: msg.result }); }
+  };
+
+  function poll() {
+    fetch(BRIDGE + "/state?since=" + revision).then(function (r) { return r.json(); }).then(function (s) {
+      if (!online || !registered) {
+        online = true;
+        el("offline").style.display = "none";
+        return post("/register", { tools: TOOLS }).then(function () { registered = true; revision = -1; poll(); });
+      }
+      state = s; revision = s.revision;
+      if (s.toolCalls && s.toolCalls.length) { runTools(s.toolCalls); }
+      render();
+      poll();
+    }).catch(function () {
+      online = false; registered = false;
+      el("offline").style.display = "block";
+      el("statusText").textContent = "Soma Agente is not running";
+      el("status").className = "status error";
+      setTimeout(poll, 2500);
+    });
+  }
+
+  document.querySelectorAll("[data-provider]").forEach(function (b) { b.onclick = function () { post("/provider", { provider: b.dataset.provider }); }; });
+  el("model").onchange = function () { post("/model", { model: el("model").value }); };
+  el("effort").onchange = function () { post("/effort", { effort: el("effort").value }); };
+  el("newChat").onclick = function () { post("/new"); };
+  el("connect").onclick = function () { post("/login"); };
+  el("attach").onclick = function () { el("file").click(); };
+  el("file").onchange = function () {
+    Array.prototype.forEach.call(el("file").files, function (file) {
+      var reader = new FileReader();
+      reader.onload = function () { images.push({ name: file.name, data: String(reader.result).split(",")[1] }); el("attached").textContent = "Attached: " + images.map(function (i) { return i.name; }).join(", "); };
+      reader.readAsDataURL(file);
+    });
+    el("file").value = "";
+  };
+  function send() {
+    if (state && state.busy) { post("/stop"); return; }
+    var text = el("prompt").value.trim();
+    if (!text && !images.length) { return; }
+    post("/send", { text: text, images: images }).then(function (r) {
+      if (r.ok) { el("prompt").value = ""; images = []; el("attached").textContent = ""; }
+    });
+  }
+  el("send").onclick = send;
+  el("prompt").onkeydown = function (e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } };
+  poll();
+</script>
+</body>
+</html>

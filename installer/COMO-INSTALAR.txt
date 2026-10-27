@@ -1,0 +1,75 @@
+SOMA AGENTE 1.5.0 — COMO INSTALAR
+Agente de IA (Claude, ChatGPT ou Antigravity) para After Effects, Photoshop, Illustrator,
+Premiere Pro, Blender, Cinema 4D e Figma.
+
+ANTES
+- Tenha pelo menos uma IA instalada e com login feito: o app Claude
+  (claude.ai/download), o app Codex do ChatGPT (chatgpt.com/codex) ou a
+  CLI do Antigravity (agy). Pode ter todas.
+- Salve seu trabalho e FECHE os programas Adobe onde vai instalar.
+- Blender e Cinema 4D precisam ter sido abertos pelo menos uma vez
+  (o instalador procura as pastas de configuração deles).
+
+WINDOWS
+1) Dê dois cliques em Soma-Agente-Instalador.exe
+2) Se aparecer "O Windows protegeu o computador", clique em
+   "Mais informações" > "Executar assim mesmo" (o instalador não é
+   assinado digitalmente, por isso o aviso).
+3) Marque os programas onde quer o Soma (os encontrados já vêm marcados)
+   e clique em Instalar. Não precisa ser administrador.
+
+ONDE ABRIR DEPOIS DE INSTALAR
+- After Effects, Photoshop, Illustrator, Premiere Pro:
+  Window > Extensions > Soma Agente
+- Blender: no 3D Viewport aperte N e abra a aba "Soma".
+  (O add-on liga sozinho na primeira vez que o Blender abre.)
+- Cinema 4D: menu Extensions > Soma Agente (dá para encaixar o painel).
+- Figma (uma vez só): no app desktop do Figma, menu
+  Plugins > Development > Import plugin from manifest… e escolha o arquivo
+  que o instalador copiou para a área de transferência:
+  %LOCALAPPDATA%\Soma Agente\figma\plugin\manifest.json
+  Depois é só abrir Plugins > Development > Soma Agente.
+  O Soma Hub (o ajudante do Figma) inicia sozinho quando você entra no
+  Windows (também tem o atalho "Soma Hub" no menu Iniciar).
+
+NA PRIMEIRA VEZ, EM QUALQUER PROGRAMA
+Escolha Claude, ChatGPT ou Antigravity e clique em Connect: abre o navegador para você
+entrar na SUA conta. Depois é só conversar.
+Para o After Effects verificar o resultado com prévias de frames, ligue:
+Edit > Preferences > Scripting & Expressions >
+Allow Scripts To Write Files And Access Network.
+
+ANTIGRAVITY COMANDANDO TODOS OS APPS (SOMA HUB)
+O instalador coloca o "Soma Hub", que inicia junto com o Windows. Cada
+programa aberto com o Soma se conecta a ele. Marcando "Antigravity" no
+instalador, o servidor MCP "soma" aparece no Antigravity (app, IDE e CLI).
+Aí, numa conversa do Antigravity, é só pedir, por exemplo:
+  "Use o soma: renderize a câmera do Blender, coloque a imagem no
+   Photoshop e anime no After Effects."
+Ele usa list_apps, get_app_tools e call_app_tool para trabalhar em
+qualquer programa aberto, e cada ação aparece no chat do Soma do programa
+como "Antigravity · …".
+Para usar o Antigravity como IA dentro dos painéis, instale a CLI dele:
+  PowerShell:  irm https://antigravity.google/cli/install.ps1 | iex
+
+MAC
+Abra Soma-Agente-Mac.zip. Dentro há:
+- "Soma Agente" (After Effects, Photoshop, Illustrator, Premiere):
+  pasta scripts > botão direito em Instalar-macOS.command > Abrir > Abrir,
+  e aperte Return.
+- "Blender": copie a pasta soma_agente para
+  ~/Library/Application Support/Blender/<versão>/scripts/addons e ligue o
+  add-on em Edit > Preferences > Add-ons.
+- "Cinema 4D": copie a pasta soma_agente para a pasta plugins das
+  preferências do C4D (Edit > Preferences > botão "Open Preferences Folder").
+- "Figma": precisa do python3 do Mac. Rode no Terminal:
+  python3 "<pasta>/Figma/bridge/soma_figma_bridge.py"
+  e importe Figma/plugin/manifest.json como no Windows.
+(No Mac, só o painel Adobe tem instalador automático.)
+
+ATUALIZAR OU DESINSTALAR
+- Para atualizar, rode o instalador novo: as versões anteriores são
+  guardadas automaticamente em pastas de backup.
+- Windows: abra o instalador e clique em "Desinstalar" (canto de baixo).
+  Nada é apagado: os arquivos vão para pastas de backup, e a configuração
+  do Adobe (PlayerDebugMode) volta a ser como era antes.

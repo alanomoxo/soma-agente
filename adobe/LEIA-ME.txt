@@ -1,0 +1,287 @@
+SOMA AGENTE 1.4.1 (CLAUDE, CHATGPT OU ANTIGRAVITY) — INSTALAÇÃO E USO
+Versão modificada do AE Agent 0.8.1 | 26 de outubro de 2026
+
+1. O QUE É
+
+AE Agent é um painel que abre dentro do After Effects. Você escreve um
+pedido; o Claude consulta a composição e executa as ações no After Effects
+(criar layers, keyframes, expressions, efeitos, prévias de frames etc.).
+
+Você escolhe qual IA usar: Claude (pelo Claude Code, que vem junto com o
+app Claude desktop) ou ChatGPT (pelo Codex, que vem junto com o app Codex
+da OpenAI). Não precisa de chave de API: usa o login da sua própria conta.
+
+Fluxo: Soma Agente -> Claude Code ou Codex (local) -> sua conta -> After Effects.
+
+ESCOLHER A IA: clique no seletor de modelo (embaixo da caixa de mensagem)
+ou na engrenagem > Agent, e escolha Claude ou ChatGPT. Trocar de IA começa
+um chat novo. Cada IA guarda seu próprio modelo e nível de esforço.
+
+2. REQUISITOS
+
+- After Effects 2026 (26.x), no Windows ou no Mac.
+- Para Claude: app Claude desktop (https://claude.ai/download) OU o
+  Claude Code CLI.
+- Para ChatGPT: app Codex da OpenAI (https://chatgpt.com/codex) OU o
+  Codex CLI, com login na sua conta ChatGPT.
+- Uma conta Claude com acesso ao Claude Code (o uso conta nos limites do
+  seu plano).
+- Internet.
+
+3. INSTALAR NO WINDOWS
+
+1) Salve o projeto e feche o After Effects.
+2) Clique com o botão direito no ZIP > Extrair tudo. Não rode de dentro do ZIP.
+3) Abra scripts\Instalar-Windows.cmd com dois cliques.
+4) Leia o aviso e digite INSTALAR.
+
+O instalador copia o painel para
+%APPDATA%\Adobe\CEP\extensions\com.framepilot.aeagent
+e liga PlayerDebugMode=1 em HKCU\Software\Adobe\CSXS.12 (permite painéis
+não assinados no After Effects; vale para outros painéis CEP também).
+Não precisa de administrador.
+
+4. INSTALAR NO MAC
+
+1) Salve o projeto e feche o After Effects.
+2) Dê dois cliques no ZIP para extrair.
+3) Abra o Terminal (Aplicativos > Utilitários > Terminal).
+4) Digite zsh e um espaço, arraste o arquivo
+   scripts/Instalar-macOS.command para a janela do Terminal e aperte Return.
+5) Leia o aviso e digite INSTALAR.
+
+O instalador copia o painel para
+~/Library/Application Support/Adobe/CEP/extensions/com.framepilot.aeagent
+e liga PlayerDebugMode=1 em com.adobe.CSXS.12 (permite painéis não
+assinados). Não usa sudo. Não desative o Gatekeeper.
+
+5. PRIMEIRO USO
+
+1) Abra o After Effects > Window > Extensions > AE Agent
+   (ou Extensions (Legacy)).
+2) Clique na engrenagem > Connect Claude. Abre um terminal e o navegador:
+   entre na SUA conta Claude e autorize. Se o terminal pedir um código:
+   - Windows: se o Ctrl+V não colar, clique com o botão direito na janela.
+   - Mac: cole com Cmd+V.
+   O painel mostra "Claude connected" sozinho quando o login termina.
+   No Mac, se aparecer um pedido de acesso às Chaves (Keychain) para o
+   "claude", clique em Permitir.
+3) Para prévias de frames, deixe ligado:
+   Windows: Edit > Preferences > Scripting & Expressions >
+   Mac: After Effects > Settings > Scripting & Expressions >
+   Allow Scripts To Write Files And Access Network.
+4) Teste num projeto descartável:
+   - "Liste as camadas desta composição, sem alterar nada."
+   - "Crie um retângulo roxo no centro, 600 por 300 pixels."
+   - Clique na seta de voltar no topo do painel (Revert last run).
+     Deve sumir só o retângulo criado.
+
+No seletor de modelo (embaixo da caixa de mensagem) dá para escolher
+Opus, Sonnet ou Haiku e o nível de esforço.
+
+5A. VOZ, IMAGENS, VÍDEOS E REFERÊNCIAS (NOVO NA 1.0.0)
+
+Configure uma vez em: engrenagem > Voice & video.
+
+VOZ (botão do microfone)
+- Clique no microfone, fale, clique de novo para parar (máximo 5 minutos).
+  O texto transcrito aparece na caixa de mensagem para você conferir
+  antes de enviar. Marque "Send automatically after transcribing" se
+  quiser que envie sozinho.
+- Motor de transcrição (Engine):
+  - On this computer (whisper.cpp): grátis, offline, nada sai do seu
+    computador. Windows: clique em Install (9 MB) e depois em Download
+    do modelo. Modelos: Base (148 MB, rápido), Small (488 MB,
+    recomendado para português), Large v3 Turbo (574 MB, o mais
+    preciso). Mac: no Terminal rode  brew install whisper-cpp  (precisa
+    do Homebrew, brew.sh) e baixe o modelo pelo painel.
+  - OpenAI API ou Groq API: cole sua chave de API. O áudio vai para o
+    serviço escolhido. A Groq tem plano gratuito.
+- Language: deixe em "Detect automatically" ou fixe em Português para
+  melhorar a precisão.
+- Windows: se o microfone não funcionar, em Configurações > Privacidade
+  e segurança > Microfone, ligue o acesso para aplicativos da área de
+  trabalho.
+
+IMAGENS
+- Botão + , arrastar para qualquer parte do painel, ou colar (Ctrl+V).
+- PNG, JPG, GIF e WebP vão direto. Imagens grandes são reduzidas
+  automaticamente. TIFF, PSD, EXR e HEIC são convertidas (precisa do
+  FFmpeg).
+
+VÍDEO
+- Anexe MP4, MOV, WebM, MKV, AVI etc. O Claude não assiste vídeo
+  diretamente: o painel extrai frames espalhados pelo clipe (cada um
+  com o seu tempo, ex.: 00:03.5) e transcreve o áudio do vídeo. O
+  agente recebe tudo isso junto com duração, resolução e fps.
+- Precisa do FFmpeg: Voice & video > FFmpeg > Install (cerca de 25 MB).
+  Sem FFmpeg o painel tenta ler o vídeo sozinho, mas muitos formatos
+  (ex.: MOV/ProRes) não abrem.
+- "Frames per video": 6, 12 (padrão), 20 ou 32. Mais frames mostram o
+  movimento com mais detalhe, mas gastam mais do seu limite do Claude.
+- O cartão do vídeo mostra o progresso (Frame 3/12, Transcribing…).
+  Se você enviar antes de terminar, o painel espera e envia sozinho.
+- Peça, por exemplo: "recrie a animação desse vídeo" ou "importe esse
+  vídeo no projeto e coloque na comp ativa" (o agente recebe o caminho
+  do arquivo e consegue importar quando você pedir).
+
+ÁUDIO E DOCUMENTOS
+- Arquivos de áudio (MP3, WAV, M4A…) chegam ao agente como transcrição.
+- PDF chega como documento; TXT, MD, JSON, CSV, SRT, VTT etc. chegam
+  como texto.
+
+REFERÊNCIAS (botão do marcador, ao lado do +)
+- "+ Add" salva imagens, vídeos, áudios ou documentos na sua biblioteca
+  de referências (uma cópia fica em AE Agent\References).
+- Ou clique no marcador no canto de um anexo para salvá-lo.
+- Dê um nome e escreva uma nota para o agente (ex.: "use esta
+  tipografia e esta paleta"). A nota vai junto sempre que a referência
+  for usada.
+- Clique na miniatura ou em Use para anexar à mensagem.
+- Pin: a referência é enviada automaticamente na primeira mensagem de
+  todo chat novo (bom para manual de marca, logo, guia de estilo).
+  Para começar um chat novo, clique no lápis no topo do painel.
+
+EASES (botão da curva, ao lado do marcador — novo na 1.1.0)
+- Escolha um preset (Easy Ease, Smooth, Snappy, Punchy, Anticipate,
+  Overshoot e as famílias Sine, Quad, Cubic, Quart, Quint, Expo, Circ,
+  Back em In / Out / In Out) ou digite um cubic-bezier, por exemplo
+  .16, 1, .3, 1  ou  cubic-bezier(.17,.67,.83,.67)  (mesmo formato do
+  Flow e do easings.net). O gráfico mostra a curva.
+- "Apply to selected keys": aplica na hora nos keyframes selecionados
+  na timeline, sem usar o Claude. Funciona em várias propriedades e
+  camadas de uma vez. Desfaça com a seta de voltar ou Ctrl+Z no AE.
+- "Ask the agent": escreve o pedido na caixa de mensagem para o agente.
+- O agente também entende pedidos como "deixa essa animação mais
+  snappy", "ease out expo na entrada do título" ou "coloca um
+  overshoot leve na escala". Ele usa a curva exata e confere o
+  resultado lendo as curvas de volta.
+- Limite: em Position (caminho espacial) o After Effects não aceita
+  velocidade negativa, então curvas com antecipação (Anticipate, Back
+  In) ficam sem o recuo nessa propriedade. Separe as dimensões
+  (Separate Dimensions) se precisar do recuo.
+
+6. IMPORTANTE
+
+- O agente altera o projeto sozinho, sem pedir confirmação a cada passo.
+  Cada ação vira um passo de Undo. Salve uma cópia antes de usar em
+  trabalho real.
+- Mensagens, imagens, frames de vídeo, transcrições e prévias de frames
+  são enviados ao Claude. Use só material que você pode compartilhar.
+- Na transcrição local nada sai do computador; com OpenAI ou Groq o
+  áudio é enviado ao serviço escolhido.
+- whisper.cpp, FFmpeg e os modelos são baixados do GitHub e do Hugging
+  Face só quando você clica em Install/Download, e ficam em
+  %APPDATA%\AE Agent\bin e \models (Mac: ~/Library/Application
+  Support/AE Agent/).
+- Pacote experimental, sem garantia. Não é um produto oficial da Adobe,
+  da Anthropic nem do autor do AE Agent original.
+
+7. SE ALGO NÃO FUNCIONAR
+
+- "Install Claude" / "Not found": instale o app Claude desktop, abra-o
+  uma vez e clique em Check again nas configurações do painel.
+  Se o Claude Code estiver em outro lugar, salve o caminho completo dele
+  num arquivo de texto simples chamado claude-path.txt em:
+    Windows: %APPDATA%\AE Agent\   (caminho do claude.exe)
+    Mac: ~/Library/Application Support/AE Agent/   (caminho do claude;
+         descubra com "which claude" no Terminal; crie o arquivo como
+         texto simples, nunca RTF)
+- "Login required": clique em Connect Claude de novo.
+- Painel não aparece: feche e abra o After Effects; confirme que a pasta
+  instalada tem CSXS/manifest.xml.
+- Mac, painel não aparece mesmo assim: o macOS pode ter marcado os
+  arquivos baixados como "em quarentena". Com o After Effects fechado,
+  rode no Terminal:
+  xattr -dr com.apple.quarantine "$HOME/Library/Application Support/Adobe/CEP/extensions/com.framepilot.aeagent"
+- Botão de parar (quadrado) interrompe o pedido; o que já foi feito fica
+  no projeto e pode ser revertido.
+
+8. DESINSTALAR
+
+Feche o After Effects e apague a pasta com.framepilot.aeagent:
+  Windows: %APPDATA%\Adobe\CEP\extensions\
+  Mac: ~/Library/Application Support/Adobe/CEP/extensions/
+Os dados do painel ficam em %APPDATA%\AE Agent\ (Windows) ou
+~/Library/Application Support/AE Agent/ (Mac); pode apagar também.
+
+Desfazer o PlayerDebugMode é opcional (só se nenhum outro painel não
+assinado depender dele). O valor anterior fica salvo em
+cep-debug-before-install.txt na pasta de dados do painel.
+  Windows: Editor do Registro, HKCU\Software\Adobe\CSXS.12.
+  Mac, se o valor era ABSENT: defaults delete com.adobe.CSXS.12 PlayerDebugMode
+
+9. O QUE MUDOU
+
+1.4.1
+- Instalador: não falha mais com "acesso negado" quando a pasta do Soma Hub
+  está aberta em outro programa.
+- Cinema 4D: ID próprio do plugin (o de testes podia colidir com outro
+  plugin), carrega mesmo se faltar algum tipo de objeto, e erros vão para
+  AE Agent\soma-c4d.log e aparecem na janela.
+.4.0
+- Corrigido: no Photoshop e no Premiere todas as ferramentas falhavam
+  (o script de inicialização travava o mecanismo de scripts).
+- Antigravity como terceira IA (CLI agy), em todos os programas.
+- Soma Hub: o Antigravity comanda todos os programas abertos de uma vez.
+.3.0
+- O mesmo painel agora funciona no Photoshop, Illustrator e Premiere Pro,
+  cada um com ferramentas próprias (camadas, formas, texto, timeline,
+  efeitos, transições, prévias para conferir o resultado).
+- Novos: add-on do Blender (barra lateral N > Soma), plugin do Cinema 4D
+  (Extensions > Soma Agente) e plugin do Figma com ajudante local.
+- Instalador do Windows com seleção de programas, atualização e
+  desinstalação. Veja COMO-INSTALAR.txt.
+
+1.2.0
+- Visual com a marca Soma: símbolo e logotipo SOMA, fundo preto, gradiente
+  laranja/rosa/roxo nos botões principais e rosa Soma como cor padrão.
+- Escolha entre Claude e ChatGPT (Codex) no seletor de modelo ou em
+  Settings > Agent. O ChatGPT usa as mesmas ferramentas do After Effects,
+  lê imagens e frames de vídeo e lista os modelos da sua conta. PDFs só
+  são lidos pelo Claude.
+
+1.1.0
+- Nome: Soma Agente.
+- Eases: curvas cubic-bezier exatas (presets ou números), aplicadas
+  direto nos keyframes selecionados ou pelo agente (novas ferramentas
+  apply_ease_curve e get_ease_curves).
+- Voz: o primeiro clique no microfone instala sozinho o whisper.cpp e
+  o modelo, se ainda não estiverem instalados.
+
+1.0.0
+- Gravação de voz com transcrição (whisper.cpp local, OpenAI ou Groq);
+  o texto entra na caixa de mensagem.
+- Envio de vídeo: frames com tempo + transcrição do áudio, via FFmpeg.
+- Imagens mais robustas: redução automática de imagens grandes e
+  conversão de TIFF/PSD/EXR/HEIC; arrastar e colar em qualquer lugar.
+- Áudio, PDF e documentos de texto como anexos.
+- Biblioteca de referências com notas e referências fixadas (Pin).
+- Nova aba Settings > Voice & video.
+
+0.9.1
+- Mac: o painel procura o Claude Code em mais lugares (app Claude desktop,
+  instalador nativo, Homebrew, npm), já que apps abertos pelo Finder não
+  herdam o PATH do Terminal.
+- Mac: o login abre o Terminal por um arquivo .command, sem precisar da
+  permissão de Automação do macOS.
+
+0.9.0 (em relação ao 0.8.1 original)
+- Codex/ChatGPT substituído pelo Claude Code (servidor MCP local em
+  127.0.0.1 com token aleatório expõe as ferramentas do After Effects).
+- Corrigido: "Revert" usava Edit > Purge > Undo e apagava todo o
+  histórico de Undo; agora usa o Undo normal.
+- Corrigido: prévias de frames chegavam vazias (o After Effects grava o
+  PNG depois que o script retorna); o painel agora espera o arquivo.
+
+10. TESTES
+
+0.9.1 — Windows 11 + After Effects 26.5 + Claude Code 2.1.308:
+instalador, login, leitura, criação de layers, prévia de frames e
+Revert testados. Mac: preparado, mas ainda não testado num Mac de verdade.
+
+1.0.0 — verificação de sintaxe, testes da lógica (leitura da
+transcrição, amostragem de frames, WAV, biblioteca de referências) e
+interface conferida no navegador. Ainda não testado dentro do After
+Effects: microfone no painel, download/execução do whisper.cpp e do
+FFmpeg, e envio de PDF ao Claude.

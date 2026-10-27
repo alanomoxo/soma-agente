@@ -1,0 +1,13 @@
+{
+  "name": "Soma Agente",
+  "id": "soma-agente-local",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma"],
+  "networkAccess": {
+    "allowedDomains": ["none"],
+    "devAllowedDomains": ["http://localhost:47821"],
+    "reasoning": "Talks to the Soma Agente helper running on this computer, which runs Claude or ChatGPT."
+  }
+}

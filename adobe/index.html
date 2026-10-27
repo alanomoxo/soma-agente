@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Soma Agente</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main id="appShell" class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <img class="brand-mark" src="img/soma-mark.svg" alt="" aria-hidden="true" />
+          <div class="brand-copy">
+            <h1><img class="brand-wordmark" src="img/soma-wordmark.svg" alt="Soma" /><span class="brand-suffix">Agente</span></h1>
+            <div class="eyebrow">After Effects copilot</div>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <button id="newChatButton" class="icon-button" type="button" title="New chat (pinned references are sent again)" aria-label="New chat">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+          </button>
+          <button id="undoButton" class="icon-button" type="button" tabindex="-1" title="Revert the last Soma Agente run (mouse click only)" aria-label="Revert last run" disabled>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7 5 11l4 4" /><path d="M5 11h8a6 6 0 0 1 6 6" /></svg>
+          </button>
+          <button id="settingsButton" class="icon-button" type="button" title="Settings: connection, instructions, and appearance" aria-label="Settings">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" /></svg>
+          </button>
+        </div>
+      </header>
+
+      <section id="systemBanner" class="system-banner" hidden></section>
+
+      <section id="progressPanel" class="progress-panel" hidden aria-live="polite">
+        <div class="progress-copy">
+          <strong id="progressTitle">Analyzing the request</strong>
+          <span id="progressDetail">Inspecting the active composition before making changes.</span>
+        </div>
+        <div class="progress-track" aria-hidden="true"><span id="progressBar" class="progress-bar"></span></div>
+      </section>
+
+      <div class="workbench">
+        <aside class="tool-dock legacy-tools-only" aria-label="Saved tools">
+          <button id="createToolButton" class="dock-button dock-add" type="button" title="Create a tool" aria-label="Create a tool">+</button>
+          <div id="toolDockList" class="tool-dock-list"></div>
+          <span class="dock-caption">TOOLS</span>
+        </aside>
+        <div class="chat-column">
+      <section id="conversation" class="conversation" aria-live="polite">
+        <article class="message assistant-message welcome-message">
+          <img class="welcome-orb" src="img/soma-mark.svg" alt="" aria-hidden="true" />
+          <h2>What are we making?</h2>
+          <p>Describe a change, speak it with the microphone, or attach images, videos, audio, and documents as references. I’ll inspect the active composition, make the edit, and verify the result.</p>
+          <div class="suggestions">
+            <button class="suggestion" type="button">List the layers in this comp</button>
+            <button class="suggestion" type="button">Add a centered title that says “Hello”</button>
+            <button class="suggestion" type="button">Find the title and turn it into an Essential Graphics control</button>
+            <button class="suggestion" type="button">Recreate the animation in the attached video</button>
+          </div>
+        </article>
+      </section>
+
+      <footer class="composer-wrap">
+        <div class="chat-mode legacy-tools-only" role="group" aria-label="Chat mode">
+          <button id="editModeButton" type="button" aria-pressed="true" title="Ask the agent to edit the active composition">Edit composition</button>
+          <button id="toolModeButton" type="button" aria-pressed="false" title="Plan, preview, and build a reusable tool">Create tools</button>
+        </div>
+        <div id="toolPhaseBar" class="chat-mode tool-phase legacy-tools-only" hidden role="group" aria-label="Tool creation phase">
+          <button id="planToolButton" type="button" aria-pressed="true" title="Discuss and preview only. Project changes and saving are blocked.">Plan</button>
+          <button id="buildToolButton" type="button" aria-pressed="false" title="Build and save the tool from your plan">Build</button>
+          <button id="showDraftButton" type="button" title="View the latest tool layout draft" disabled>Preview</button>
+        </div>
+        <section id="modelPopover" class="popover model-popover" hidden aria-label="Choose a model">
+          <div class="popover-heading">AI</div>
+          <div class="provider-switch" role="group" aria-label="Choose the AI">
+            <button type="button" data-provider-choice="claude" aria-pressed="true" title="Use Claude (Claude Code on this computer)">Claude</button>
+            <button type="button" data-provider-choice="chatgpt" aria-pressed="false" title="Use ChatGPT (Codex on this computer)">ChatGPT</button>
+            <button type="button" data-provider-choice="antigravity" aria-pressed="false" title="Use Antigravity (agy CLI on this computer)">Antigravity</button>
+          </div>
+          <div class="popover-heading">Model</div>
+          <div id="modelList" class="model-list"></div>
+          <div id="effortSection" class="effort-section" hidden>
+            <div class="popover-heading">Reasoning</div>
+            <div id="effortList" class="effort-list"></div>
+          </div>
+        </section>
+        <section id="referencesPopover" class="popover references-popover" hidden aria-label="References">
+          <div class="references-header">
+            <div class="popover-heading">References</div>
+            <button id="addReferenceButton" class="settings-link" type="button" title="Save images, videos, audio, or documents as references">+ Add</button>
+          </div>
+          <p class="references-hint">Click a reference to attach it. Pinned references are sent automatically at the start of every new chat.</p>
+          <div id="referenceList" class="reference-list"></div>
+          <input id="referenceInput" type="file" accept="image/*,video/*,audio/*,.pdf,.txt,.md,.json,.csv,.srt,.vtt,.xml,.html,.jsx,.js" multiple hidden />
+        </section>
+        <section id="easePopover" class="popover ease-popover" hidden aria-label="Ease curves">
+          <div class="ease-editor">
+            <svg id="easeGraph" class="ease-graph" viewBox="-10 -40 120 180" aria-hidden="true"></svg>
+            <div class="ease-fields">
+              <div class="popover-heading">Ease</div>
+              <strong id="easeName" class="ease-name">Easy Ease</strong>
+              <label class="ease-input-label">cubic-bezier
+                <input id="easeBezier" class="ease-input" spellcheck="false" aria-label="cubic-bezier values" />
+              </label>
+              <button id="easeApply" type="button" class="tool-primary" title="Apply now to the keyframes selected in the timeline (no AI request; undo with Ctrl+Z in After Effects)">Apply to selected keys</button>
+              <button id="easeAsk" type="button" class="tool-secondary" title="Write a request for the agent in the message box">Ask the agent</button>
+            </div>
+          </div>
+          <div id="easePresets" class="ease-presets"></div>
+        </section>
+        <div id="attachmentTray" class="attachment-tray" hidden></div>
+        <div class="composer">
+          <textarea id="promptInput" rows="2" placeholder="Message Soma Agente" aria-label="Message"></textarea>
+          <div class="composer-actions">
+            <div class="left-actions">
+              <button id="attachButton" class="icon-button" type="button" title="Attach images, videos, audio, or documents" aria-label="Attach files">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+              </button>
+              <input id="imageInput" type="file" accept="image/*,video/*,audio/*,.pdf,.txt,.md,.json,.csv,.srt,.vtt,.xml,.html,.jsx,.js" multiple hidden />
+              <button id="referencesButton" class="icon-button" type="button" title="Saved references" aria-label="Saved references" aria-haspopup="true" aria-expanded="false">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1Z" /></svg>
+              </button>
+              <button id="easeButton" class="icon-button" type="button" title="Ease curves for keyframes" aria-label="Ease curves" aria-haspopup="true" aria-expanded="false">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20C11 20 9 4 20 4" /><circle cx="4" cy="20" r="1.4" /><circle cx="20" cy="4" r="1.4" /></svg>
+              </button>
+              <button id="micButton" class="icon-button" type="button" title="Record a voice instruction (transcribed into the message box)" aria-label="Record a voice instruction">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Z" /><path d="M18 11v1a6 6 0 0 1-12 0v-1M12 18v3M9 21h6" /></svg>
+              </button>
+              <span id="recordingTimer" class="recording-timer" hidden>0:00</span>
+              <button id="modelButton" class="model-button" type="button" title="Choose the model and reasoning effort" aria-haspopup="true" aria-expanded="false">
+                <span id="modelLabel" class="model-label">Loading models…</span>
+                <span id="effortLabel" class="effort-label"></span>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 10 4 4 4-4" /></svg>
+              </button>
+            </div>
+            <button id="sendButton" class="send-button" type="button" title="Send" aria-label="Send">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6.5 10.5 12 5l5.5 5.5" /></svg>
+            </button>
+          </div>
+        </div>
+        <div class="composer-meta">
+          <span id="connectionLabel">Local bridge</span>
+          <span>Return to send · Shift+Return for a new line</span>
+          <span id="versionLabel" class="version-label">v1.5.0</span>
+        </div>
+      </footer>
+        </div>
+      </div>
+    </main>
+
+    <section id="toolDrawer" class="tool-drawer legacy-tools-only" hidden role="dialog" aria-modal="true" aria-labelledby="toolDrawerTitle">
+      <header class="tool-drawer-header"><h2 id="toolDrawerTitle">Tool settings</h2><button id="closeToolDrawer" type="button" class="icon-button" aria-label="Close tool settings">×</button></header>
+      <p id="toolDescription" class="tool-description"></p>
+      <form id="toolForm">
+        <h3 id="toolOptionsHeading">Default options</h3>
+        <div id="toolOptionFields" class="tool-option-fields"></div>
+        <button id="runSavedTool" type="submit" class="tool-primary" title="Run locally using the values shown above">Run tool</button>
+      </form>
+      <p id="toolRunStatus" class="tool-description" role="status"></p>
+      <section class="tool-customize">
+        <h3>Appearance</h3>
+        <label>Name<input id="toolName" maxlength="60" /></label>
+        <label>Icon<span id="toolIconGrid" class="icon-choice-grid" role="group" aria-label="Tool icon"></span><select id="toolIcon" hidden aria-label="Selected tool icon"></select></label>
+        <label>Color<span class="tool-color-row"><button class="tool-color-swatch" data-tool-color="#10a37f" style="--swatch:#10a37f" type="button" aria-label="Green"></button><button class="tool-color-swatch" data-tool-color="#8c52ff" style="--swatch:#8c52ff" type="button" aria-label="Violet"></button><button class="tool-color-swatch" data-tool-color="#2f8cff" style="--swatch:#2f8cff" type="button" aria-label="Blue"></button><button class="tool-color-swatch" data-tool-color="#f06aa8" style="--swatch:#f06aa8" type="button" aria-label="Pink"></button><button class="tool-color-swatch" data-tool-color="#ef4444" style="--swatch:#ef4444" type="button" aria-label="Red"></button><input id="toolColor" class="color-picker" type="color" value="#2f8cff" title="Choose a custom tool color" aria-label="Choose a custom tool color" /></span></label>
+        <button id="saveToolAppearance" type="button" class="tool-secondary">Save appearance &amp; defaults</button>
+        <h3>Tool actions</h3>
+        <button id="openNativeTool" type="button" class="tool-secondary" title="Open this tool in its own After Effects window">Open in After Effects</button>
+        <button id="exportTool" type="button" class="tool-secondary" title="Export a standalone dockable JSX panel and editable JSON definition">Export tool</button>
+        <button id="editToolInChat" type="button" class="tool-secondary">Edit this tool in chat</button>
+        <button id="removeTool" type="button" class="tool-secondary danger">Remove from dock</button>
+      </section>
+      <details class="tool-source"><summary>View script</summary><pre id="toolSource"></pre></details>
+    </section>
+
+    <section id="settingsPopover" class="popover settings-popover" hidden role="dialog" aria-label="Settings">
+      <header class="tool-drawer-header"><h2>Settings</h2><button id="closeSettings" class="icon-button" type="button" aria-label="Close settings" title="Close settings">×</button></header>
+      <nav class="settings-tabs" aria-label="Settings sections">
+        <button type="button" data-settings-tab="agent" aria-pressed="true" title="Connection and persistent instructions">Agent</button>
+        <button type="button" data-settings-tab="media" aria-pressed="false" title="Voice transcription and video analysis">Voice &amp; video</button>
+        <button class="legacy-tools-only" type="button" data-settings-tab="tools" aria-pressed="false" title="Stored tools, previews, and exports">Tools</button>
+        <button type="button" data-settings-tab="appearance" aria-pressed="false" title="Accent color and dock layout">Appearance</button>
+      </nav>
+      <div data-settings-page="agent">
+        <h3>AI</h3><p>Choose which AI runs Soma Agente. All use your own account on this computer: Claude through Claude Code, ChatGPT through Codex, Antigravity through its CLI (agy). Switching starts a new chat.</p>
+        <div class="provider-switch large" role="group" aria-label="Choose the AI">
+          <button type="button" data-provider-choice="claude" aria-pressed="true">Claude</button>
+          <button type="button" data-provider-choice="chatgpt" aria-pressed="false">ChatGPT</button>
+          <button type="button" data-provider-choice="antigravity" aria-pressed="false">Antigravity</button>
+        </div>
+        <div class="provider-grid">
+          <article class="provider-card" data-provider="claude">
+            <div class="provider-heading"><span id="providerMark" class="provider-mark claude-mark">C</span><span><strong id="providerName">Claude</strong><small id="openaiDiagnosticSummary">Checking…</small></span></div>
+            <button id="accountButton" class="account-button" type="button" title="Connect your Claude account or check connection status"><span id="accountDot" class="status-dot"></span><span id="accountLabel">Checking…</span></button>
+          </article>
+          <article class="provider-card" data-provider="claude-legacy" hidden>
+            <div class="provider-heading"><span class="provider-mark claude-mark">C</span><span><strong>Claude</strong><small id="claudeDiagnosticSummary">Checking…</small></span></div>
+            <button id="claudeConnectButton" class="account-button" type="button" title="Connect or diagnose Claude"><span id="claudeDot" class="status-dot"></span><span id="claudeConnectLabel">Checking…</span></button>
+          </article>
+        </div>
+        <section class="diagnostic-panel" aria-live="polite">
+          <div><strong>Connection diagnosis</strong><span id="diagnosticTimestamp"></span></div>
+          <p id="diagnosticMessage">Checking the agents available on this computer…</p>
+          <div class="diagnostic-actions"><button id="runDiagnostics" type="button" class="tool-secondary">Check again</button><button id="copyDiagnostics" type="button" class="tool-secondary">Copy report</button></div>
+        </section>
+        <h3>Persistent instructions</h3><p>Your preferences are included with every request. Planning mode remains read-only.</p>
+        <textarea id="persistentInstructions" rows="7" maxlength="12000" placeholder="Naming conventions, preferred frame rate, organization, workflow…" aria-label="Persistent instructions"></textarea>
+        <button id="saveInstructions" type="button" class="tool-primary" title="Save instructions for future requests">Save instructions</button>
+        <p id="instructionsStatus" role="status"></p>
+      </div>
+      <div data-settings-page="media" hidden>
+        <h3>Voice transcription</h3>
+        <p>The microphone button records your voice and writes the transcript into the message box so you can check it before sending. Attached audio files are transcribed the same way.</p>
+        <label class="setting-field">Engine
+          <select id="sttEngine" title="Where speech is converted to text">
+            <option value="local">On this computer: whisper.cpp (free, offline)</option>
+            <option value="openai">OpenAI API (your API key)</option>
+            <option value="groq">Groq API (your API key)</option>
+          </select>
+        </label>
+        <label class="setting-field">Language
+          <select id="sttLanguage" title="Spoken language">
+            <option value="auto">Detect automatically</option>
+            <option value="pt">Português</option>
+            <option value="en">English</option>
+            <option value="es">Español</option>
+            <option value="fr">Français</option>
+            <option value="de">Deutsch</option>
+            <option value="it">Italiano</option>
+          </select>
+        </label>
+        <div id="sttLocalSection">
+          <label class="setting-field">Model<select id="sttModel" title="Larger models are more accurate but slower"></select></label>
+          <div class="media-status-row"><span><strong>whisper.cpp</strong><small id="whisperStatus">Checking…</small></span><button id="installWhisper" type="button" class="tool-secondary">Install</button></div>
+          <div class="media-status-row"><span><strong>Model</strong><small id="modelStatus">Checking…</small></span><button id="downloadModel" type="button" class="tool-secondary">Download</button></div>
+        </div>
+        <div id="sttApiSection" hidden>
+          <label class="setting-field">API key<input id="sttApiKey" type="password" autocomplete="off" spellcheck="false" placeholder="Paste the key from your provider account" /></label>
+          <p>The key is saved only in this panel on this computer. Recordings are sent to the provider you chose.</p>
+        </div>
+        <label class="setting-field checkbox-field"><input id="voiceAutoSend" type="checkbox" /> Send automatically after transcribing</label>
+        <h3>Video analysis</h3>
+        <p>The AI cannot watch video directly, so attached videos are sent as timestamped frames plus a transcript of their audio. This needs FFmpeg.</p>
+        <div class="media-status-row"><span><strong>FFmpeg</strong><small id="ffmpegStatus">Checking…</small></span><button id="installFfmpeg" type="button" class="tool-secondary">Install</button></div>
+        <label class="setting-field">Frames per video
+          <select id="videoFrames" title="More frames show motion in more detail but use more of your AI usage">
+            <option value="6">6 (light)</option>
+            <option value="12">12 (balanced)</option>
+            <option value="20">20 (detailed)</option>
+            <option value="32">32 (maximum)</option>
+          </select>
+        </label>
+        <label class="setting-field checkbox-field"><input id="videoTranscribe" type="checkbox" /> Transcribe the audio of attached videos</label>
+        <section id="mediaProgress" class="diagnostic-panel" hidden aria-live="polite">
+          <div><strong id="mediaProgressLabel">Downloading…</strong><span id="mediaProgressPercent"></span></div>
+          <div class="progress-track"><span id="mediaProgressBar" class="progress-bar determinate"></span></div>
+        </section>
+        <div class="diagnostic-actions"><button id="checkMedia" type="button" class="tool-secondary">Check again</button><button id="openMediaFolder" type="button" class="tool-secondary">Open folder</button></div>
+      </div>
+      <div class="legacy-tools-only" data-settings-page="tools" hidden>
+        <h3>Tool library</h3><p id="toolStoragePath"></p>
+        <div class="tool-customize-row"><button id="openToolsFolder" type="button" class="tool-secondary" title="Show the stored tool definitions in Finder">Open folder</button><button id="openExportsFolder" type="button" class="tool-secondary" title="Show exported JSX panels and JSON definitions">Open exports</button></div>
+        <p>Exported JSX files work independently of Soma Agente. Install them in After Effects’ Scripts/ScriptUI Panels folder to dock them after restarting AE.</p>
+        <div id="settingsToolList"></div>
+      </div>
+      <div data-settings-page="appearance" hidden>
+      <h3>Accent color</h3>
+      <div class="color-row">
+        <button class="color-swatch" data-color="#e70e77" style="--swatch:#e70e77" type="button" aria-label="Soma pink"></button>
+        <button class="color-swatch" data-color="#f4833d" style="--swatch:#f4833d" type="button" aria-label="Soma orange"></button>
+        <button class="color-swatch" data-color="#8a2be2" style="--swatch:#8a2be2" type="button" aria-label="Soma purple"></button>
+        <button class="color-swatch" data-color="#2f8cff" style="--swatch:#2f8cff" type="button" aria-label="Blue"></button>
+        <button class="color-swatch" data-color="#52d98b" style="--swatch:#52d98b" type="button" aria-label="Green"></button>
+      </div>
+      <label class="setting-field color-picker-field">Choose a custom color<input id="accentInput" class="color-picker" type="color" value="#e70e77" aria-label="Choose a custom accent color" title="Open the color picker" /></label>
+      <button id="resetAccentButton" class="settings-link" type="button">Use Soma pink</button>
+      <div class="legacy-tools-only"><h3>Tool dock</h3>
+      <label class="setting-field">Dock position<select id="dockPosition" title="Place the dock on the left or right"><option value="left">Left</option><option value="right">Right</option></select></label>
+      <label class="setting-field">Icon size<select id="dockSize" title="Choose compact or comfortable dock icons"><option value="compact">Compact</option><option value="comfortable">Comfortable</option></select></label>
+      <label class="setting-field checkbox-field"><input id="dockLabels" type="checkbox" /> Show tool names</label>
+      <p>Drag icons to reorder. Right-click an icon to open its full-screen customization view. Alt + arrow keys also changes its order.</p></div>
+      </div>
+    </section>
+
+    <script src="js/platform.js"></script>
+    <script src="js/media.js"></script>
+    <script src="js/references.js"></script>
+    <script src="js/eases.js"></script>
+    <script src="js/hosts.js"></script>
+    <script src="js/hosts/aftereffects.js"></script>
+    <script src="js/hosts/photoshop.js"></script>
+    <script src="js/hosts/illustrator.js"></script>
+    <script src="js/hosts/premierepro.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>
