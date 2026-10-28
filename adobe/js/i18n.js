@@ -131,7 +131,7 @@
     "Accent color and dock layout": "Cor de destaque, idioma e layout",
     "Appearance": "Aparência",
     "AI": "IA",
-    "Choose which AI runs Soma Agente. All use your own account on this computer: Claude through Claude Code, ChatGPT through Codex, Antigravity through its CLI (agy). Switching starts a new chat.": "Escolha qual IA roda o Soma Agente. Todas usam a sua conta neste computador: o Claude pelo Claude Code, o ChatGPT pelo Codex e o Antigravity pela CLI (agy). Trocar começa uma nova conversa.",
+    "Choose which AI runs Soma Agente. All use your own account on this computer: Claude through Claude Code, ChatGPT through Codex, Antigravity through its CLI (agy). Switching keeps the conversation; use New chat to start over.": "Escolha qual IA roda o Soma Agente. Todas usam a sua conta neste computador: o Claude pelo Claude Code, o ChatGPT pelo Codex e o Antigravity pela CLI (agy). Trocar mantém a conversa; use Nova conversa para começar do zero.",
     "Checking…": "Verificando…",
     "Connect or diagnose Claude": "Conectar ou diagnosticar o Claude",
     "Connection diagnosis": "Diagnóstico da conexão",

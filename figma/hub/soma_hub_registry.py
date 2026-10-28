@@ -20,7 +20,7 @@ TOKEN_FILE = os.path.join(system.data_directory(), "hub-token.txt")
 
 INSTRUCTIONS = (
     "Soma Hub connects you to the creative programs open on this computer (After Effects, Photoshop, "
-    "Illustrator, Premiere Pro, Blender, Cinema 4D, Figma). Call list_apps to see which are open, "
+    "Illustrator, Premiere Pro, Blender, Cinema 4D, Figma, Cavalry). Call list_apps to see which are open, "
     "get_app_tools to read a program's tools, then call_app_tool to act. You can chain programs in one "
     "task, for example render a frame in Blender, place it in Photoshop and animate it in After Effects. "
     "Each program's tools include an inspection tool, a preview tool that returns an image, and a scripting "
@@ -46,10 +46,11 @@ def hub_token():
 
 
 class Registry:
-    def __init__(self, figma_host):
+    def __init__(self, remote_hosts):
         self.apps = {}
         self.lock = threading.Lock()
-        self.figma = figma_host
+        # Figma and Cavalry: their tools run through this hub, not their own MCP server.
+        self.remote = {h.id: h for h in remote_hosts}
         self.token = hub_token()
         self.activity = []
 
@@ -77,8 +78,9 @@ class Registry:
             for app_id in [k for k, v in self.apps.items() if now - v["seen"] > APP_TTL]:
                 self.apps.pop(app_id, None)
             apps = [dict(v) for v in self.apps.values()]
-        if self.figma.tools and now - getattr(self.figma, "last_poll", 0) < 60:
-            apps.append({"id": "figma", "name": "Figma", "namespace": "figma"})
+        for h in self.remote.values():
+            if h.tools and now - getattr(h, "last_poll", 0) < 60:
+                apps.append({"id": h.id, "name": h.name, "namespace": h.namespace})
         return apps
 
     def find(self, app):
@@ -105,16 +107,16 @@ class Registry:
 
     def app_tools(self, app):
         entry = self.find(app)
-        if entry["id"] == "figma":
-            return entry, self.figma.tools
+        if entry["id"] in self.remote:
+            return entry, self.remote[entry["id"]].tools
         return entry, self._rpc(entry, "tools/list", {}, 30).get("tools", [])
 
     def call(self, app, tool, arguments):
         entry = self.find(app)
         self.activity.append({"time": time.time(), "app": entry["id"], "tool": tool})
         del self.activity[:-50]
-        if entry["id"] == "figma":
-            result = self.figma.call_tool(tool, arguments or {})
+        if entry["id"] in self.remote:
+            result = self.remote[entry["id"]].call_tool(tool, arguments or {})
             images = result.pop("images", None) or []
             content = [{"type": "text", "text": json.dumps(result, default=str)}]
             for path in images:
@@ -133,7 +135,7 @@ class Registry:
         {"name": "list_apps", "description": "Programs that have Soma open right now, with their app id.",
          "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}},
         {"name": "get_app_tools", "description": "The tools of one open program (name, description, input schema). Read this before calling a program's tools.",
-         "inputSchema": {"type": "object", "properties": {"app": {"type": "string", "description": "App id from list_apps, e.g. aftereffects, photoshop, illustrator, premierepro, blender, cinema4d, figma."}}, "required": ["app"], "additionalProperties": False}},
+         "inputSchema": {"type": "object", "properties": {"app": {"type": "string", "description": "App id from list_apps, e.g. aftereffects, photoshop, illustrator, premierepro, blender, cinema4d, figma, cavalry."}}, "required": ["app"], "additionalProperties": False}},
         {"name": "call_app_tool", "description": "Run one tool in one open program and return its result (text, plus images for preview tools).",
          "inputSchema": {"type": "object", "properties": {"app": {"type": "string"}, "tool": {"type": "string"}, "arguments": {"type": "object"}}, "required": ["app", "tool"], "additionalProperties": False}},
     ]

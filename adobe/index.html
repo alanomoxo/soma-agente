@@ -17,8 +17,8 @@
           </div>
         </div>
         <div class="topbar-actions">
-          <button id="newChatButton" class="icon-button" type="button" title="New chat (pinned references are sent again)" aria-label="New chat">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+          <button id="newChatButton" class="icon-button new-chat-button" type="button" title="New chat (pinned references are sent again)" aria-label="New chat">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14" /><path d="M5 12h14" /></svg><span>New chat</span>
           </button>
           <button id="undoButton" class="icon-button" type="button" tabindex="-1" title="Revert the last Soma Agente run (mouse click only)" aria-label="Revert last run" disabled>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7 5 11l4 4" /><path d="M5 11h8a6 6 0 0 1 6 6" /></svg>
@@ -184,7 +184,7 @@
         <button type="button" data-settings-tab="appearance" aria-pressed="false" title="Accent color and dock layout">Appearance</button>
       </nav>
       <div data-settings-page="agent">
-        <h3>AI</h3><p>Choose which AI runs Soma Agente. All use your own account on this computer: Claude through Claude Code, ChatGPT through Codex, Antigravity through its CLI (agy). Switching starts a new chat.</p>
+        <h3>AI</h3><p>Choose which AI runs Soma Agente. All use your own account on this computer: Claude through Claude Code, ChatGPT through Codex, Antigravity through its CLI (agy). Switching keeps the conversation; use New chat to start over.</p>
         <div class="provider-switch large" role="group" aria-label="Choose the AI">
           <button type="button" data-provider-choice="claude" aria-pressed="true">Claude</button>
           <button type="button" data-provider-choice="chatgpt" aria-pressed="false">ChatGPT</button>

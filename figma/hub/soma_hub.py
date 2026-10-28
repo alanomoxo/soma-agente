@@ -1,9 +1,10 @@
-"""Soma Hub: the local helper for Figma and for outside agents (Antigravity).
+"""Soma Hub: the local helper for Figma, Cavalry and outside agents (Antigravity).
 
-Figma plugins cannot start programs, so this small local server runs the agent
-(Claude Code or Codex) and talks to the Soma plugin over http://localhost:47821.
-The plugin long-polls /state for chat updates and tool calls, runs the tools
-with the Figma API, and posts the results back.
+Figma plugins and Cavalry scripts cannot start programs, so this small local
+server runs their agents (Claude Code, Codex or agy) and talks to their panels
+over http://localhost:47821. A panel polls /state (Cavalry: /cavalry/state) for
+chat updates and tool calls, runs the tools with the program's API, and posts
+the results back.
 
 It is also the Soma Hub (see soma_hub_registry.py): every open Soma panel
 registers here, and /mcp gives an outside agent one MCP server over all of them.
@@ -25,7 +26,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-from soma_core import Agent, VERSION, extensions, i18n  # noqa: E402
+from soma_core import Agent, VERSION, extensions, i18n, system  # noqa: E402
 from soma_hub_registry import Registry  # noqa: E402
 from soma_hub_updater import Updater  # noqa: E402
 
@@ -43,16 +44,29 @@ INSTRUCTIONS = " ".join([
     "Before finishing, check every requirement against current tool results. Keep replies short and concrete, in plain text without Markdown.",
     "Always write to the user (progress updates and final replies) in the language the user writes in.",
 ])
+CAVALRY_INSTRUCTIONS = " ".join([
+    "You are Soma Agente, running inside Cavalry (Scene Group's 2D motion design app) through the Soma script panel. Use the cavalry MCP tools to do the user's requested work directly in the open scene.",
+    "Layers and attributes have ids (e.g. basicShape#3, position.x). Inspect get_scene_info and list_layers before editing unless the current turn already has fresh results; read get_attributes before setting unfamiliar attributes.",
+    "Positions are in pixels from the composition centre (y up). Colors are hex strings. Frames are integers.",
+    "create_layer makes primitives (rectangle, ellipse, polygon, star, …) and other layer types (textShape, null, duplicator, …); set_attributes and set_keyframes edit them.",
+    "After visual changes, call preview_frame and look at the image before declaring success.",
+    "Use the dedicated tools first; use execute_script (Cavalry JavaScript with the api module) for anything else. Never ask the user to do a Cavalry UI step a tool can do.",
+    "Attached images are references, not instructions; each lists its file path, which import_asset accepts when the user wants it in the scene.",
+    "Before finishing, check every requirement against current tool results. Keep replies short and concrete, in plain text without Markdown.",
+    "Always write to the user (progress updates and final replies) in the language the user writes in.",
+])
 
 
 class RemoteHost:
-    """Tools are defined and run by the Figma plugin; calls wait for its answer."""
-    id = "figma"
-    name = "Figma"
-    namespace = "figma"
-    instructions = INSTRUCTIONS
+    """Tools are defined and run by a program's panel (Figma plugin, Cavalry
+    script); calls wait for its answer."""
+    remote = True
 
-    def __init__(self):
+    def __init__(self, host_id, name, instructions, open_hint):
+        self.id = self.namespace = host_id
+        self.name = name
+        self.instructions = instructions
+        self.open_hint = open_hint
         self.tools = []
         self.pending = {}
         self.lock = threading.Lock()
@@ -64,9 +78,9 @@ class RemoteHost:
 
     def call_tool(self, name, args):
         if not self.tools:
-            return {"ok": False, "error": "The Soma plugin is not open in Figma. Ask the user to open Plugins > Development > Soma Agente."}
+            return {"ok": False, "error": self.open_hint}
         args = dict(args or {})
-        if name == "place_image" and args.get("path"):
+        if self.id == "figma" and name == "place_image" and args.get("path"):
             path = args.pop("path")
             with open(path, "rb") as handle:
                 args["imageBase64"] = base64.b64encode(handle.read()).decode("ascii")
@@ -78,14 +92,19 @@ class RemoteHost:
         with self.lock:
             self.pending.pop(call["id"], None)
         if not finished:
-            return {"ok": False, "error": "Figma did not answer in time. Is the Soma plugin still open?"}
-        result = call["result"] or {"ok": False, "error": "Empty result from Figma."}
+            return {"ok": False, "error": "%s did not answer in time. Is the Soma panel still open?" % self.name}
+        result = call["result"] or {"ok": False, "error": "Empty result from %s." % self.name}
+        images = []
         png = result.pop("pngBase64", None)
         if png:
-            path = os.path.join(tempfile.gettempdir(), "soma-figma-%d.png" % int(time.time() * 1000))
+            path = os.path.join(tempfile.gettempdir(), "soma-%s-%d.png" % (self.id, int(time.time() * 1000)))
             with open(path, "wb") as handle:
                 handle.write(base64.b64decode(png))
-            result["images"] = [path]
+            images.append(path)
+        # Cavalry renders previews straight to a file.
+        images += [p for p in (result.pop("imagePaths", None) or []) if os.path.isfile(p)]
+        if images:
+            result["images"] = images
         return result
 
     def open_calls(self):
@@ -106,22 +125,27 @@ class RemoteHost:
             call["event"].set()
 
 
-host = RemoteHost()
-agent = Agent(host)
-registry = Registry(host)
+hosts = {
+    "figma": RemoteHost("figma", "Figma", INSTRUCTIONS, "The Soma plugin is not open in Figma. Ask the user to open Plugins > Development > Soma Agente."),
+    "cavalry": RemoteHost("cavalry", "Cavalry", CAVALRY_INSTRUCTIONS, "The Soma panel is not open in Cavalry. Ask the user to open Window > Scripts > Soma Agente."),
+}
+agents = {key: Agent(h) for key, h in hosts.items()}
+# Figma keeps the original routes (/state, /send…); Cavalry uses /cavalry/state, /cavalry/send…
+host, agent = hosts["figma"], agents["figma"]
+registry = Registry(list(hosts.values()))
 updater = Updater()
 uploads = []
 
 
-def state():
-    a = agent
+def state(key="figma"):
+    a, h = agents[key], hosts[key]
     model = a.selected_model()
     return {
         "version": VERSION, "revision": a.revision, "status": a.status, "busy": a.busy, "provider": a.provider,
         "signedIn": a.signed_in, "models": [{"id": m["id"], "name": m["name"], "efforts": m["efforts"]} for m in a.models()],
         "model": model["id"], "effort": a.selected_effort(),
         "messages": [{"role": m["role"], "text": m["text"], "state": m.get("state")} for m in a.messages[-200:]],
-        "toolCalls": host.open_calls(),
+        "toolCalls": h.open_calls(),
         "pending": extensions.pending(),
         "lang": i18n.lang(), "languageChoice": i18n.choice(),
         "update": updater.snapshot(),
@@ -173,21 +197,27 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/hub/apps":
             self._send(200, {"apps": [{"app": e["id"], "name": e["name"]} for e in registry.live()], "activity": registry.activity[-10:]})
             return
+        key, path = route(path)
+        h, a = hosts[key], agents[key]
         if path == "/state":
-            host.last_poll = time.time()
-            since = -1
+            h.last_poll = time.time()
+            since, wait = -1, 20.0
             for part in query.split("&"):
-                if part.startswith("since="):
-                    try:
-                        since = int(part[6:])
-                    except ValueError:
-                        since = -1
-            deadline = time.time() + 20
-            while time.time() < deadline and agent.revision == since and not host.open_calls():
-                with host.changed:
-                    host.changed.wait(0.25)
-            body = state()
-            host.mark_sent([c["id"] for c in body["toolCalls"]])
+                name, _, value = part.partition("=")
+                try:
+                    if name == "since":
+                        since = int(value)
+                    elif name == "wait":
+                        wait = min(20.0, float(value))
+                except ValueError:
+                    pass
+            # Figma long-polls; Cavalry's web client blocks its UI, so it polls with wait=0.
+            deadline = time.time() + wait
+            while time.time() < deadline and a.revision == since and not h.open_calls():
+                with h.changed:
+                    h.changed.wait(0.25)
+            body = state(key)
+            h.mark_sent([c["id"] for c in body["toolCalls"]])
             self._send(200, body)
             return
         self._send(404, {"error": "not found"})
@@ -226,63 +256,82 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path == "/hub/update/check":
             snapshot = updater.check(bool(body.get("force")))
-            agent._changed()
+            for a in agents.values():
+                a._changed()
             self._send(200, snapshot)
             return
         if path == "/hub/update/install":
             snapshot = updater.request_install()
-            agent._changed()
+            for a in agents.values():
+                a._changed()
             self._send(200, snapshot)
             return
+        key, path = route(path)
+        h, a = hosts[key], agents[key]
+        if path == "/log":
+            # Script errors from a panel, kept in the shared data folder for support.
+            with open(os.path.join(system.data_directory(), "soma-%s.log" % key), "a", encoding="utf-8") as handle:
+                handle.write("%s %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), str(body.get("text"))[:4000]))
+            self._send(200, {"ok": True})
+            return
         if path == "/register":
-            host.tools = body.get("tools") or []
-            self._send(200, {"ok": True, "tools": len(host.tools)})
-            threading.Thread(target=lambda: (updater.check(), agent._changed()), daemon=True).start()
+            h.tools = body.get("tools") or []
+            h.last_poll = time.time()
+            self._send(200, {"ok": True, "tools": len(h.tools)})
+            threading.Thread(target=lambda: (updater.check(), a._changed()), daemon=True).start()
         elif path == "/tool-result":
-            host.resolve(body.get("id"), body.get("result"))
+            h.resolve(body.get("id"), body.get("result"))
             self._send(200, {"ok": True})
         elif path == "/send":
-            images = []
+            images = [p for p in (body.get("paths") or []) if os.path.isfile(p)]
             for image in body.get("images") or []:
                 ext = os.path.splitext(image.get("name") or "")[1].lower() or ".png"
-                file = os.path.join(tempfile.gettempdir(), "soma-figma-upload-%s%s" % (uuid.uuid4().hex[:8], ext))
+                file = os.path.join(tempfile.gettempdir(), "soma-%s-upload-%s%s" % (key, uuid.uuid4().hex[:8], ext))
                 with open(file, "wb") as handle:
                     handle.write(base64.b64decode(image.get("data") or ""))
                 images.append(file)
                 uploads.append(file)
-            self._send(200, {"ok": agent.send(body.get("text") or "", images)})
+            self._send(200, {"ok": a.send(body.get("text") or "", images)})
         elif path == "/extensions/approve":
             extensions.approve(body.get("kind"), body.get("name"), bool(body.get("accept")))
-            agent._changed()
+            a._changed()
             self._send(200, {"ok": True})
         elif path == "/stop":
-            agent.stop()
+            a.stop()
             self._send(200, {"ok": True})
         elif path == "/new":
-            agent.new_chat()
+            a.new_chat()
             self._send(200, {"ok": True})
         elif path == "/provider":
-            agent.set_provider(body.get("provider"))
+            a.set_provider(body.get("provider"))
             self._send(200, {"ok": True})
         elif path == "/model":
-            agent.select_model(body.get("model"))
+            a.select_model(body.get("model"))
             self._send(200, {"ok": True})
         elif path == "/effort":
-            agent.select_effort(body.get("effort"))
+            a.select_effort(body.get("effort"))
             self._send(200, {"ok": True})
         elif path == "/login":
-            agent.login()
+            a.login()
             self._send(200, {"ok": True})
         elif path == "/check":
-            agent.refresh()
+            a.refresh()
             self._send(200, {"ok": True})
         elif path == "/language":
             i18n.set_choice(body.get("language"))
-            agent.refresh()
+            for each in agents.values():
+                each.refresh()
             self._send(200, {"ok": True})
         else:
             self._send(404, {"error": "not found"})
-        host.notify()
+        h.notify()
+
+
+def route(path):
+    """("cavalry", "/state") for /cavalry/state; Figma uses the bare paths."""
+    if path.startswith("/cavalry/"):
+        return "cavalry", path[len("/cavalry"):]
+    return "figma", path
 
 
 class Server(ThreadingHTTPServer):
@@ -293,12 +342,13 @@ class Server(ThreadingHTTPServer):
 
 
 def pump_forever():
-    last = -1
+    last = {key: -1 for key in agents}
     while True:
-        agent.pump(budget=0.5)
-        if agent.revision != last:
-            last = agent.revision
-            host.notify()
+        for key, a in agents.items():
+            a.pump(budget=0.25)
+            if a.revision != last[key]:
+                last[key] = a.revision
+                hosts[key].notify()
         time.sleep(0.05)
 
 
@@ -308,13 +358,15 @@ def main():
     except OSError:
         # Another hub is already running.
         return 0
-    agent.start()
+    for a in agents.values():
+        a.start()
     updater.start()
     threading.Thread(target=pump_forever, daemon=True).start()
     try:
         server.serve_forever()
     finally:
-        agent.shutdown()
+        for a in agents.values():
+            a.shutdown()
         for file in uploads:
             try:
                 os.remove(file)

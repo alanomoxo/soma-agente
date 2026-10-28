@@ -210,6 +210,10 @@ h1 {
 
 .icon-button:hover { background: var(--panel-hover); }
 
+/* "New chat" carries its label so it is easy to find. */
+.icon-button.new-chat-button { display: inline-flex; width: auto; gap: 5px; padding: 0 11px 0 8px; border: 1px solid var(--line); font-size: 11px; color: var(--text); white-space: nowrap; }
+.icon-button.new-chat-button svg { width: 15px; height: 15px; }
+
 .icon-button svg,
 .send-button svg,
 .model-button svg {

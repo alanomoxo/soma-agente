@@ -269,7 +269,7 @@ class Agent:
     def start(self):
         self.mcp.start()
         self.refresh()
-        if self.host.id != "figma":
+        if not getattr(self.host, "remote", False):
             threading.Thread(target=self._hub_heartbeat, daemon=True).start()
             threading.Thread(target=self._update_loop, daemon=True).start()
 
@@ -410,7 +410,12 @@ class Agent:
             return
         self.provider = provider
         self.settings.set("provider", provider)
-        self.new_chat()
+        # The conversation continues: the new AI starts its own session and gets
+        # the chat so far with the next message (see _with_history).
+        with self.lock:
+            self.thread_id = None
+        if any(m["role"] in ("user", "assistant") for m in self.messages):
+            self.add_message("status", L("Switched to %s — the conversation continues.", "Trocado para o %s — a conversa continua.") % self.provider_name)
         self.set_status(L("Starting %s…", "Iniciando o %s…") % self.provider_name)
         self.refresh()
 
@@ -504,12 +509,30 @@ class Agent:
             self.add_message("error", L("Connect your %s account first (Connect button).", "Conecte sua conta %s primeiro (botão Conectar).") % self.provider_name)
             return False
         label = text + ("" if not images else L("\n[%d image(s) attached]", "\n[%d imagem(ns) anexada(s)]") % len(images))
+        prompt = self._with_history(text)
         self.add_message("user", label)
         self.busy = True
         self.stop_requested = False
         self.set_status(L("Working…", "Trabalhando…"))
-        threading.Thread(target=self._run_turn, args=(text, images), daemon=True).start()
+        threading.Thread(target=self._run_turn, args=(prompt, images), daemon=True).start()
         return True
+
+    def _with_history(self, text):
+        """A new session (after switching the AI) gets the chat so far, so the
+        conversation carries on where the previous AI left it."""
+        if self.thread_id is not None:
+            return text
+        lines = []
+        for m in self.messages:
+            if m["role"] == "user":
+                lines.append("User: " + m["text"])
+            elif m["role"] == "assistant":
+                lines.append("Assistant: " + m["text"])
+        if not lines:
+            return text
+        history = "\n\n".join(lines)[-12000:]
+        return ("<previous_conversation>\nThe conversation so far in this program (possibly with another AI). "
+                "Continue from it; the work it describes is already in the document.\n\n%s\n</previous_conversation>\n\n%s" % (history, text))
 
     def stop(self):
         self.stop_requested = True

@@ -1,5 +1,10 @@
 # Changelog
 
+## Em desenvolvimento
+- Cavalry: painel de chat (Scripts > Soma Agente) ligado ao Soma Hub, com ferramentas para ler a cena, criar e animar camadas, conectar atributos, importar arquivos e conferir com um quadro de prévia. Ainda não entra pelo instalador.
+- Trocar de IA mantém a conversa: a nova IA recebe o histórico junto com a próxima mensagem.
+- Botão "+ Nova conversa" visível em todos os painéis.
+
 ## 1.6.3
 - O próprio agente confere atualizações: cada programa verifica o GitHub ao abrir e mostra "Atualizar agora" quando há versão nova (painel Adobe, Blender, Cinema 4D e Figma).
 - Botão "Verificar atualizações" (Configurações > Agente no painel Adobe; painel do Blender; botão Verificar no Cinema 4D).

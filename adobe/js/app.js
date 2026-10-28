@@ -1312,8 +1312,10 @@
     client.stop();
     provider = id;
     savePreference("aeAgent.provider", id);
+    // The chat stays: the new AI starts its own session and receives the
+    // conversation so far with the next message (see conversationHistory).
     client = new PROVIDERS[id].Client();
-    resetChat();
+    if (conversationHistory()) { showBanner(L("Switched to " + providerLabel() + " — the conversation continues. Use New chat to start over.", "Trocado para o " + providerLabel() + " — a conversa continua. Use Nova conversa para começar do zero."), "info"); }
     renderProvider();
     elements.modelLabel.textContent = "Loading models…";
     bootstrap();
@@ -2000,6 +2002,8 @@
       // Keep pasted files until the chat ends so the agent can still import them.
       if (item.temp) { chatTempFiles.push(item.path); }
     });
+    // A new session (first message, or after switching the AI) gets the chat so far.
+    var history = client.threadId ? "" : conversationHistory();
     addUserMessage(text || L("Attached reference", "Referência anexada"), sentAttachments);
 
     attachments = [];
@@ -2018,6 +2022,7 @@
 
     buildAttachmentBlocks(sentAttachments).then(function (input) {
       input.push({ type: "text", text: "[Panel mode: Chat only. Perform the requested work directly in " + HOST.name + ". Reusable tool creation is disabled.]" });
+      if (history) { input.push({ type: "text", text: "<previous_conversation>\nThe conversation so far in this panel (possibly with another AI). Continue from it; the work it describes is already in the document.\n\n" + history + "\n</previous_conversation>" }); }
       input.push({ type: "text", text: text || "Use the attached references. Describe what you infer and help me reproduce or adapt it in the active composition." });
       if (sentAttachments.length) { setProgress("Analyzing the request", "Building an inspection and verification plan for the active composition.", "running"); }
       return client.startTurn(input);
@@ -3148,6 +3153,17 @@
   function cleanupOutgoingTemps() {
     outgoingTempFiles.forEach(safeRemove);
     outgoingTempFiles = [];
+  }
+
+  // The visible chat as plain text ("User: …" / "Assistant: …"), newest last, capped.
+  function conversationHistory() {
+    var lines = [];
+    Array.prototype.forEach.call(elements.conversation.querySelectorAll("article.message"), function (article) {
+      var body = article.querySelector(".message-body");
+      var text = body ? body.textContent.trim() : "";
+      if (text) { lines.push((article.classList.contains("user-message") ? "User: " : "Assistant: ") + text); }
+    });
+    return lines.join("\n\n").slice(-12000);
   }
 
   function resetChat() {

@@ -365,7 +365,7 @@ class SOMA_PT_chat(Panel):
         else:
             row.operator("soma.send", text=L("Send", "Enviar"), icon="PLAY")
         row.operator("soma.attach", text="", icon="IMAGE_DATA")
-        row.operator("soma.new_chat", text="", icon="FILE_NEW")
+        row.operator("soma.new_chat", text=L("New chat", "Nova conversa"), icon="ADD")
         row.operator("soma.open_chat", text="", icon="TEXT")
         row = layout.row(align=True)
         row.prop(context.window_manager, "soma_language", text="")
