@@ -20,10 +20,27 @@ O projeto é livre e feito para ajudar a comunidade de motion design, 3D e desig
 
 ### Windows
 1. Baixe `Soma-Agente-Instalador.exe` na [última Release](../../releases/latest).
-2. Abra, marque os programas e clique em **Instalar**. Não precisa ser administrador. Na primeira instalação é preciso internet: o instalador baixa o Python oficial do python.org (cerca de 11 MB, com SHA-256 conferido) para o Soma Hub.
-3. Se o Windows mostrar "O Windows protegeu o computador", clique em *Mais informações > Executar assim mesmo* (o instalador ainda não tem assinatura digital).
+2. Abra o arquivo. Se aparecer a tela azul **"O Windows protegeu o computador"**, veja logo abaixo: é normal.
+3. Marque os programas e clique em **Instalar**. Não precisa ser administrador. Na primeira instalação é preciso internet: o instalador baixa o Python oficial do python.org (cerca de 11 MB, com SHA-256 conferido) para o Soma Hub.
 
-**Aviso de vírus?** Instaladores novos e sem assinatura digital costumam receber alertas genéricos (SmartScreen, aviso de "download incomum" do navegador ou detecções heurísticas como `Wacatac`/`Suschil`). O código é aberto e o executável é compilado só a partir deste repositório. Para conferir que o arquivo é o oficial, compare o SHA-256:
+### A tela "O Windows protegeu o computador" é normal
+
+Ao abrir o instalador, o Windows pode mostrar esta tela azul do Microsoft Defender SmartScreen:
+
+> **O Windows protegeu o computador**
+> O Microsoft Defender SmartScreen impediu que um aplicativo não reconhecido fosse iniciado.
+
+**Ela não quer dizer que foi encontrado um vírus.** O SmartScreen mostra esse aviso para todo programa novo que ainda não tem assinatura digital paga nem muitos downloads registrados na Microsoft. É o caso do Soma Agente: um projeto gratuito e de código aberto, publicado por uma pessoa, não por uma empresa. Conforme mais gente baixar, o aviso tende a sumir.
+
+Para continuar:
+
+1. Clique em **Mais informações** (o link embaixo do texto).
+2. Confira que aparece *Aplicativo: Soma-Agente-Instalador.exe*.
+3. Clique em **Executar assim mesmo**.
+
+Pode seguir sem medo, desde que você tenha baixado o arquivo **desta página de Releases**. Todo o código está aberto neste repositório, o instalador é compilado só a partir dele e não pede permissão de administrador. Baixe sempre daqui, nunca de sites de terceiros.
+
+**Quer ter certeza de que o arquivo é o oficial?** O navegador pode mostrar avisos parecidos ("arquivo pouco baixado") e alguns antivírus dão alertas genéricos em programas novos sem assinatura. Para conferir, compare o SHA-256 (no PowerShell, na pasta onde está o arquivo):
 
 ```powershell
 Get-FileHash .\Soma-Agente-Instalador.exe -Algorithm SHA256
