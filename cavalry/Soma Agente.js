@@ -5,6 +5,7 @@
 // module, and posts the results back.
 var HUB = "http://127.0.0.1:47821";
 var somaTimer = null;
+var DEMO = null; // tests: function (state) returning a fake hub state
 
 // Errors go to the JavaScript console and to AE Agent/soma-cavalry.log (through the hub).
 var somaLines = [];
@@ -167,50 +168,229 @@ function runTool(call) {
 }
 
 // ------------------------------------------------------------------- UI
+var C = { card: "#26262b", user: "#3b2547", pink: "#E70E77", text: "#ececf1", dim: "#8e8e96", green: "#52d98b", orange: "#f4833d", red: "#ff626d", errorBg: "#3d1d22", errorText: "#ffb3b9" };
+
+function label(text, size, color) {
+    var l = new ui.Label(text || "");
+    if (size) { l.setFontSize(size); }
+    if (color) { l.setTextColor(color); }
+    return l;
+}
+
+function vbox(margins, spacing) {
+    var v = new ui.VLayout();
+    v.setMargins(margins[0], margins[1], margins[2], margins[3]);
+    v.setSpaceBetween(spacing);
+    return v;
+}
+
+function card(layout, color, radius) {
+    var c = new ui.Container();
+    c.setLayout(layout);
+    c.setBackgroundColor(color);
+    var r = radius || 8;
+    c.setRadius(r, r, r, r);
+    return c;
+}
+
+function button(color) {
+    var b = new ui.Button("");
+    if (color) { b.setBackgroundColor(color); }
+    return b;
+}
+
 ui.setTitle("Soma Agente");
+ui.setMargins(10, 10, 10, 10);
+ui.setSpaceBetween(8);
+
+// Header: brand, status and New chat
+var title = label("", 15, C.text);
+title.setMarkdown("**Soma** Agente");
+var dot = label("●", 11, C.dim);
+var status = label("", 11, C.dim);
+var newChat = button();
+var header = new ui.HLayout();
+header.setSpaceBetween(6);
+header.add(title);
+header.addStretch();
+header.add(newChat);
+var statusRow = new ui.HLayout();
+statusRow.setSpaceBetween(6);
+statusRow.add(dot, status);
+
+// Which AI, model and language
 var provider = new ui.DropDown();
 ["Claude", "ChatGPT", "Antigravity"].forEach(function (p) { provider.addEntry(p); });
 var model = new ui.DropDown();
-var newChat = new ui.Button("");
-var status = new ui.Label("");
-var connect = new ui.Button("");
-var log = new ui.MultiLineEdit();
-log.setReadOnly(true);
-log.setMinimumHeight(320);
-var notice = new ui.Label("");
-var noticeYes = new ui.Button("");
-var noticeNo = new ui.Button("");
-var attached = new ui.Label("");
-var prompt = new ui.MultiLineEdit();
-prompt.setMinimumHeight(70);
-var send = new ui.Button("");
-var attach = new ui.Button("");
 var language = new ui.DropDown();
 ["Auto", "Português", "English"].forEach(function (p) { language.addEntry(p); });
+var pickers = new ui.HLayout();
+pickers.setSpaceBetween(6);
+pickers.add(provider, model);
+pickers.addStretch();
+pickers.add(language);
 
-var top = new ui.HLayout(); top.add(provider, model, newChat);
-var statusRow = new ui.HLayout(); statusRow.add(status); statusRow.addStretch(); statusRow.add(connect);
-var noticeRow = new ui.HLayout(); noticeRow.add(notice); noticeRow.addStretch(); noticeRow.add(noticeYes, noticeNo);
-var actions = new ui.HLayout(); actions.add(attach, language); actions.addStretch(); actions.add(send);
-ui.add(top, statusRow, noticeRow, log, attached, prompt, actions);
+// Sign-in card and notice card (approvals, updates)
+var connectText = label("", 12, C.text);
+var connect = button(C.pink);
+var connectRow = new ui.HLayout();
+connectRow.add(connectText);
+connectRow.addStretch();
+connectRow.add(connect);
+var connectBox = vbox([12, 10, 12, 10], 6);
+connectBox.add(connectRow);
+var connectCard = card(connectBox, C.card, 10);
+
+var notice = label("", 12, C.text);
+var noticeYes = button(C.pink);
+var noticeNo = button();
+var noticeRow = new ui.HLayout();
+noticeRow.setSpaceBetween(6);
+noticeRow.add(notice);
+noticeRow.addStretch();
+noticeRow.add(noticeYes, noticeNo);
+var noticeBox = vbox([12, 10, 12, 10], 6);
+noticeBox.add(noticeRow);
+var noticeCard = card(noticeBox, "#2f2635", 10);
+
+// Conversation: shows the current turn; a new turn gets a new scroll view so it starts at the top.
+var chatHost = new ui.VLayout();
+chatHost.setMargins(0, 0, 0, 0);
+var chat = null, showHistory = false, shownStart = -1;
+function newScroll() {
+    chatHost.clear();
+    chat = vbox([0, 0, 8, 0], 8);
+    var scroll = new ui.ScrollView();
+    scroll.setLayout(chat);
+    chatHost.add(scroll);
+}
+newScroll();
+
+// Composer
+var attached = label("", 11, C.dim);
+var prompt = new ui.MultiLineEdit();
+prompt.setFixedHeight(56);
+prompt.setFontSize(12);
+var attach = button();
+var send = button(C.pink);
+var actions = new ui.HLayout();
+actions.setSpaceBetween(6);
+actions.add(attach);
+actions.addStretch();
+actions.add(send);
+var composerBox = vbox([8, 8, 8, 8], 6);
+composerBox.add(attached, prompt, actions);
+var composer = card(composerBox, C.card, 10);
+
+ui.add(header, pickers, statusRow, connectCard, noticeCard, chatHost, composer);
+ui.setMinimumWidth(360);
 ui.setMinimumHeight(560);
 
-var noticeAction = null, noticeReject = null;
+var noticeAction = null, noticeReject = null, shownChat = null;
+var SUGGESTIONS = [
+    ["Bouncing pink ball", "Bola rosa quicando", "Make a pink ball that bounces three times", "Crie uma bola rosa que quica três vezes"],
+    ["Animated title", "Título animado", "Add a title \"Hello\" that slides in from the left", "Adicione um título \"Olá\" que entra deslizando da esquerda"],
+    ["Grid of circles", "Grade de círculos", "Make a 5x5 grid of circles that pulse one after another", "Crie uma grade 5x5 de círculos que pulsam um depois do outro"]
+];
 
 function applyTexts() {
     newChat.setText(L("+ New chat", "+ Nova conversa"));
+    newChat.setToolTip(L("Start a new conversation", "Começar uma nova conversa"));
     connect.setText(L("Connect", "Conectar"));
     send.setText(state && state.busy ? L("Stop", "Parar") : L("Send", "Enviar"));
+    send.setBackgroundColor(state && state.busy ? "#5a2a30" : C.pink);
     attach.setText(L("+ Image", "+ Imagem"));
+    attach.setToolTip(L("Attach a reference image", "Anexar uma imagem de referência"));
     prompt.setPlaceholder(L("Message Soma Agente", "Mensagem para o Soma Agente"));
 }
 
 function showNotice(text, yes, no, onYes, onNo) {
     notice.setText(text || "");
-    notice.setHidden(!text);
+    noticeCard.setHidden(!text);
     noticeYes.setText(yes || ""); noticeYes.setHidden(!yes);
     noticeNo.setText(no || ""); noticeNo.setHidden(!no);
     noticeAction = onYes; noticeReject = onNo;
+}
+
+function showStatus(text, color, signedIn) {
+    // Signed out, the sign-in card shows the status instead.
+    status.setText(signedIn ? text : "");
+    dot.setHidden(!signedIn);
+    dot.setTextColor(color);
+    connectText.setText(text);
+    connectCard.setHidden(!!signedIn);
+}
+
+// ------------------------------------------------------------- messages
+function emptyView() {
+    var box = vbox([16, 18, 16, 16], 8);
+    var head = label(L("What should we make?", "O que vamos criar?"), 15, C.text);
+    head.setAlignment(1);
+    var hint = label(L("Describe it in your own words. Soma inspects the scene, makes the change and checks it with a preview frame.",
+        "Descreva com suas palavras. O Soma inspeciona a cena, faz a mudança e confere com um quadro de prévia."), 11, C.dim);
+    hint.setAlignment(1);
+    box.add(head, hint);
+    box.addSpacing(4);
+    SUGGESTIONS.forEach(function (s) {
+        var b = button("#33333a");
+        b.setText(L(s[0], s[1]));
+        b.onClick = function () { prompt.setText(L(s[2], s[3])); };
+        box.add(b);
+    });
+    return card(box, C.card, 12);
+}
+
+function bubble(m) {
+    var row = new ui.HLayout();
+    if (m.role === "tool") {
+        row.addSpacing(12);
+        row.add(label(({ running: "◌  ", done: "✓  ", failed: "✗  " }[m.state] || "•  ") + m.text, 11, m.state === "failed" ? C.red : (m.state === "running" ? C.text : C.dim)));
+        return row;
+    }
+    if (m.role === "status") {
+        var note = label(m.text, 11, C.dim);
+        note.setAlignment(1);
+        row.add(note);
+        return row;
+    }
+    var box = vbox([12, 8, 12, 10], 3);
+    var body = label("", 12, m.role === "error" ? C.errorText : C.text);
+    if (m.role === "assistant") {
+        box.add(label("Soma", 10, C.pink));
+        body.setMarkdown(m.text);
+    } else {
+        if (m.role === "error") { box.add(label(L("Something went wrong", "Algo deu errado"), 10, C.red)); }
+        body.setText(m.text);
+    }
+    box.add(body);
+    var bg = m.role === "user" ? C.user : (m.role === "error" ? C.errorBg : C.card);
+    if (m.role === "user") { row.addSpacing(40); row.add(card(box, bg, 12)); }
+    else { row.add(card(box, bg, 12)); row.addSpacing(40); }
+    return row;
+}
+
+function renderChat() {
+    var all = state.messages, start = 0;
+    for (var i = all.length - 1; i >= 0 && !showHistory; i--) { if (all[i].role === "user") { start = i; break; } }
+    if (showHistory) { start = Math.max(0, all.length - 60); }
+    var messages = all.slice(start);
+    var key = lang + showHistory + start + JSON.stringify(messages);
+    if (key === shownChat) { return; }
+    shownChat = key;
+    if (start !== shownStart) { newScroll(); shownStart = start; } else { chat.clear(); }
+    if (start > 0 || showHistory) {
+        var toggle = button("#2c2c31");
+        toggle.setText(showHistory ? L("Hide earlier messages", "Ocultar mensagens anteriores") : L("Show " + start + " earlier messages", "Mostrar " + start + " mensagens anteriores"));
+        toggle.onClick = function () { showHistory = !showHistory; renderChat(); };
+        chat.add(toggle);
+    }
+    if (!all.length) { chat.add(emptyView()); }
+    messages.forEach(function (m) { chat.add(bubble(m)); });
+    chat.addStretch();
+}
+
+function fitComposer() {
+    composer.setFixedHeight(attachments.length ? 138 : 114);
 }
 
 function render() {
@@ -226,9 +406,8 @@ function renderState() {
     state.models.forEach(function (m) { model.addEntry(m.name); });
     state.models.forEach(function (m, i) { if (m.id === state.model) { model.setValue(i); } });
     language.setValue(["auto", "pt", "en"].indexOf(state.languageChoice || "auto"));
-    status.setText(state.status);
-    status.setTextColor(state.signedIn ? "#52d98b" : "#f4833d");
-    connect.setHidden(!!state.signedIn);
+    showStatus(state.status, state.busy ? C.orange : (state.signedIn ? C.green : C.orange), state.signedIn);
+    connect.setHidden(false);
     var pending = (state.pending || [])[0];
     var update = state.update || {};
     if (pending) {
@@ -242,16 +421,10 @@ function renderState() {
     } else {
         showNotice(null);
     }
-    var lines = [];
-    state.messages.forEach(function (m) {
-        if (m.role === "tool") { lines.push("   " + ({ running: "…", done: "✓", failed: "✗" }[m.state] || "•") + " " + m.text); }
-        else if (m.role === "user") { lines.push("\n" + L("You: ", "Você: ") + m.text); }
-        else if (m.role === "assistant") { lines.push("\nSoma: " + m.text); }
-        else { lines.push("\n[" + m.role + "] " + m.text); }
-    });
-    log.setText(lines.length ? lines.join("\n").replace(/^\n+/, "") : L("Describe what you want in the scene. Soma inspects it, makes the change and checks the result with a preview frame.",
-        "Descreva o que você quer na cena. O Soma inspeciona, faz a mudança e confere o resultado com um quadro de prévia."));
+    renderChat();
     attached.setText(attachments.length ? L("Attached: ", "Anexado: ") + attachments.map(function (p) { return p.split(/[\\/]/).pop(); }).join(", ") : "");
+    attached.setHidden(!attachments.length);
+    fitComposer();
 }
 
 var polling = false;
@@ -263,6 +436,7 @@ function poll() {
 }
 
 function pollOnce() {
+    if (DEMO) { state = DEMO(state); render(); return; }
     try {
         if (!registered) {
             hubPost("/cavalry/register", { tools: TOOLS });
@@ -280,8 +454,8 @@ function pollOnce() {
         if (online || registered || revision === -1) {
             somaLog("poll: " + (error && error.stack || error));
             online = false; registered = false; revision = -2;
-            status.setText(L("Soma Hub is not running. Reinstall Soma Agente or open “Soma Hub” from the Start menu.", "O Soma Hub não está rodando. Reinstale o Soma Agente ou abra o “Soma Hub” no menu Iniciar."));
-            status.setTextColor("#ff626d");
+            showStatus(L("Soma Hub is not running. Reinstall Soma Agente or open “Soma Hub” from the Start menu.", "O Soma Hub não está rodando. Reinstale o Soma Agente ou abra o “Soma Hub” no menu Iniciar."), C.red, false);
+            connect.setHidden(true);
         }
     }
 }
@@ -302,7 +476,7 @@ send.onClick = function () {
     var text = prompt.getText().trim();
     if (!text && !attachments.length) { return; }
     var r = hubPost("/cavalry/send", { text: text, paths: attachments });
-    if (r.ok) { prompt.clear(); attachments = []; }
+    if (r.ok) { prompt.clear(); attachments = []; showHistory = false; }
 };
 
 function Poller() { this.onTimeout = function () { try { poll(); } catch (e) { somaLog("timer: " + (e && e.stack || e)); } }; }
@@ -313,7 +487,10 @@ somaTimer.start();
 ui.onClose = function () { somaTimer.stop(); };
 applyTexts();
 showNotice(null);
-status.setText(L("Connecting to Soma…", "Conectando ao Soma…"));
+attached.setHidden(true);
+fitComposer();
+showStatus(L("Connecting to Soma…", "Conectando ao Soma…"), C.dim, false);
+connect.setHidden(true);
 somaLog("ui ready");
 ui.show();
 poll();

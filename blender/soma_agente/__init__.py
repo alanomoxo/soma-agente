@@ -16,6 +16,7 @@ import textwrap
 import threading
 
 import bpy
+import bpy.utils.previews
 from bpy.props import CollectionProperty, EnumProperty, StringProperty
 from bpy.types import Operator, Panel, PropertyGroup
 
@@ -23,7 +24,12 @@ from .soma_core import Agent, extensions, i18n
 from .soma_core.i18n import L
 from .host import BlenderHost
 
-_state = {"agent": None, "revision": -1, "model_items": [], "effort_items": []}
+_state = {"agent": None, "revision": -1, "model_items": [], "effort_items": [], "icons": None}
+
+
+def soma_icon():
+    icons = _state["icons"]
+    return icons["soma"].icon_id if icons is not None and "soma" in icons else 0
 
 
 def agent():
@@ -259,6 +265,20 @@ class SOMA_OT_update(Operator):
         return {"FINISHED"}
 
 
+class SOMA_OT_suggest(Operator):
+    bl_idname = "soma.suggest"
+    bl_label = "Suggestion"
+    bl_description = "Put this example in the message box"
+    description = _tip("Put this example in the message box", "Colocar este exemplo na caixa de mensagem")
+    text: StringProperty()
+
+    def execute(self, context):
+        _state["clearing"] = True
+        context.window_manager.soma_prompt = self.text
+        _state["clearing"] = False
+        return {"FINISHED"}
+
+
 class SOMA_OT_open_chat(Operator):
     bl_idname = "soma.open_chat"
     bl_label = "Full chat as text"
@@ -276,8 +296,90 @@ class SOMA_OT_open_chat(Operator):
 
 
 # ------------------------------------------------------------------ panel
-ROLE_ICONS = {"user": "USER", "assistant": "OUTLINER_DATA_LIGHT", "tool": "TOOL_SETTINGS", "error": "ERROR", "status": "INFO"}
 STATE_ICONS = {"running": "SORTTIME", "done": "CHECKMARK", "failed": "CANCEL"}
+SUGGESTIONS = (  # (button en, button pt, prompt en, prompt pt)
+    ("Spinning red cube", "Cubo vermelho girando", "Make a red cube that spins once", "Crie um cubo vermelho que gira uma vez"),
+    ("Three-point lighting", "Luz de três pontos", "Light the scene with a three-point setup", "Ilumine a cena com três pontos de luz"),
+    ("Orbiting camera", "Câmera orbitando", "Add a camera that orbits the selected object", "Adicione uma câmera orbitando o objeto selecionado"),
+)
+
+
+def _wrap(text, chars):
+    lines = []
+    for paragraph in (text or "").splitlines() or [""]:
+        lines.extend(textwrap.wrap(paragraph, chars) or [""])
+    return lines
+
+
+def _text(layout, text, chars, limit=40):
+    lines = _wrap(text, chars)
+    col = layout.column(align=True)
+    col.scale_y = 0.9
+    for line in lines[:limit]:
+        col.label(text=line)
+    if len(lines) > limit:
+        col.label(text=L("… (Full chat as text shows the rest)", "… (Conversa completa em texto mostra o resto)"))
+
+
+def _icon_text(layout, text, chars, icon, limit=4):
+    col = layout.column(align=True)
+    col.scale_y = 0.9
+    for i, line in enumerate(_wrap(text, chars)[:limit]):
+        col.label(text=line, icon=icon if i == 0 else "BLANK1")
+    return col
+
+
+def _draw_tools(layout, tools, chars):
+    col = layout.column(align=True)
+    col.scale_y = 0.8
+    for message in tools:
+        row = col.row(align=True)
+        row.active = message.get("state") != "done"
+        text = message["text"]
+        row.label(text=text if len(text) <= chars else text[:chars - 1] + "…", icon=STATE_ICONS.get(message.get("state"), "TOOL_SETTINGS"))
+
+
+def _draw_message(layout, message, chars):
+    role = message["role"]
+    if role == "user":
+        box = layout.box()
+        head = box.row()
+        head.alignment = "RIGHT"
+        head.active = False
+        head.label(text=L("You", "Você"), icon="USER")
+        _text(box, message["text"], chars - 4)
+    elif role == "assistant":
+        col = layout.column()
+        col.label(text="Soma", icon_value=soma_icon())
+        _text(col, message["text"], chars)
+    elif role == "error":
+        box = layout.box()
+        box.alert = True
+        box.label(text=L("Something went wrong", "Algo deu errado"), icon="ERROR")
+        _text(box, message["text"], chars - 4)
+    else:
+        _icon_text(layout, message["text"], chars, "INFO", 6).active = False
+
+
+def _draw_empty(layout, chars):
+    box = layout.box()
+    col = box.column(align=True)
+    row = col.row()
+    row.alignment = "CENTER"
+    row.template_icon(icon_value=soma_icon(), scale=3.0)
+    row = col.row()
+    row.alignment = "CENTER"
+    row.label(text=L("What should we make?", "O que vamos criar?"))
+    hint = col.column(align=True)
+    hint.active = False
+    for line in _wrap(L("Describe it in your own words. Soma inspects the scene, makes the change and checks the viewport.",
+                        "Descreva com suas palavras. O Soma inspeciona a cena, faz a mudança e confere no viewport."), chars - 2):
+        row = hint.row()
+        row.alignment = "CENTER"
+        row.label(text=line)
+    col.separator()
+    for label_en, label_pt, en, pt in SUGGESTIONS:
+        col.operator("soma.suggest", text=L(label_en, label_pt), icon="LIGHT").text = L(en, pt)
 
 
 class SOMA_PT_chat(Panel):
@@ -287,18 +389,44 @@ class SOMA_PT_chat(Panel):
     bl_region_type = "UI"
     bl_category = "Soma"
 
+    def draw_header(self, context):
+        self.layout.label(text="", icon_value=soma_icon())
+
+    def draw_header_preset(self, context):
+        row = self.layout.row(align=True)
+        row.emboss = "NONE"
+        row.operator("soma.new_chat", text="", icon="ADD")
+
     def draw(self, context):
         layout = self.layout
         wm = context.window_manager
         a = agent()
+        chars = max(24, int(context.region.width / (7 * context.preferences.system.ui_scale)))
 
-        row = layout.row(align=True)
+        # Which AI
+        col = layout.column(align=True)
+        row = col.row(align=True)
+        row.scale_y = 1.25
         row.prop(wm, "soma_provider", expand=True)
-        row = layout.row(align=True)
+        row = col.row(align=True)
         row.prop(wm, "soma_model", text="")
         if a.selected_model()["efforts"]:
             row.prop(wm, "soma_effort", text="")
 
+        # Connection
+        if a.signed_in:
+            row = layout.row()
+            row.active = a.busy
+            row.label(text=a.status, icon="SORTTIME" if a.busy else "CHECKMARK")
+        else:
+            box = layout.box()
+            _icon_text(box, a.status, chars - 4, "INFO")
+            row = box.row(align=True)
+            row.scale_y = 1.3
+            row.operator("soma.connect", text=L("Connect", "Conectar"), icon="URL")
+            row.operator("soma.check", text="", icon="FILE_REFRESH")
+
+        # Approvals and updates
         try:
             pending = extensions.pending()
         except Exception:  # noqa: BLE001 - never break the panel
@@ -316,67 +444,84 @@ class SOMA_PT_chat(Panel):
         update = a.update_text()
         if update:
             ask = layout.box()
-            ask.label(text=update, icon="IMPORT")
+            _icon_text(ask, update, chars - 4, "IMPORT", 3)
             if not (getattr(a, "update", None) or {}).get("requested"):
                 ask.operator("soma.update", text=L("Update now", "Atualizar agora"), icon="IMPORT").check_only = False
 
-        box = layout.box()
-        status = box.row()
-        status.label(text=a.status, icon="CHECKMARK" if a.signed_in and not a.busy else ("SORTTIME" if a.busy else "INFO"))
-        if not a.signed_in:
-            buttons = box.row(align=True)
-            buttons.operator("soma.connect", text=L("Connect", "Conectar"), icon="URL")
-            buttons.operator("soma.check", text=L("Check", "Verificar"), icon="FILE_REFRESH")
-
-        chars = max(24, int(context.region.width / (7 * context.preferences.system.ui_scale)))
-        chat = layout.column(align=True)
+        # Conversation
+        layout.separator()
         visible = a.messages[-14:]
         if not visible:
-            hint = chat.box()
-            for line in textwrap.wrap(L("Describe what you want in the scene. Soma inspects it, makes the change, and checks the result in the viewport.", "Descreva o que você quer na cena. O Soma inspeciona, faz a mudança e confere o resultado no viewport."), chars):
-                hint.label(text=line)
+            _draw_empty(layout, chars)
+        tools = []
         for message in visible:
-            role = message["role"]
-            block = chat.box()
-            if role == "tool":
-                block.label(text=message["text"], icon=STATE_ICONS.get(message.get("state"), "TOOL_SETTINGS"))
+            if message["role"] == "tool":
+                tools.append(message)
                 continue
-            lines = []
-            for paragraph in message["text"].splitlines() or [""]:
-                lines.extend(textwrap.wrap(paragraph, chars) or [""])
-            first = True
-            for line in lines[:40]:
-                block.label(text=line, icon=ROLE_ICONS.get(role, "BLANK1") if first else "BLANK1")
-                first = False
-            if len(lines) > 40:
-                block.label(text=L("… (Full chat as text shows the rest)", "… (Conversa completa em texto mostra o resto)"), icon="BLANK1")
+            if tools:
+                _draw_tools(layout, tools, chars)
+                tools = []
+            _draw_message(layout, message, chars)
+            layout.separator(factor=0.5)
+        if tools:
+            _draw_tools(layout, tools, chars)
 
+        # Composer
         layout.separator()
+        box = layout.box()
         if wm.soma_attachments:
-            att = layout.box()
-            for item in wm.soma_attachments:
-                att.label(text=os.path.basename(item.path), icon="IMAGE_DATA")
-            att.operator("soma.clear_attachments", text=L("Remove attachments", "Remover anexos"), icon="X")
-        col = layout.column(align=True)
-        col.prop(wm, "soma_prompt", text="", icon="TEXT")
-        row = col.row(align=True)
+            row = box.row(align=True)
+            names = ", ".join(os.path.basename(item.path) for item in wm.soma_attachments)
+            row.label(text=names if len(names) <= chars - 6 else names[:chars - 7] + "…", icon="IMAGE_DATA")
+            row.operator("soma.clear_attachments", text="", icon="X", emboss=False)
+        row = box.row()
+        row.scale_y = 1.5
+        try:
+            row.prop(wm, "soma_prompt", text="", placeholder=L("Message Soma Agente", "Mensagem para o Soma Agente"))
+        except TypeError:  # placeholder needs Blender 4.1+
+            row.prop(wm, "soma_prompt", text="", icon="TEXT")
+        row = box.row(align=True)
+        row.scale_y = 1.3
+        row.operator("soma.attach", text="", icon="IMAGE_DATA")
+        row.operator("soma.open_chat", text="", icon="TEXT")
+        row.separator()
         if a.busy:
-            row.operator("soma.stop", text=L("Stop", "Parar"), icon="CANCEL")
+            stop = row.row(align=True)
+            stop.alert = True
+            stop.operator("soma.stop", text=L("Stop", "Parar"), icon="CANCEL")
         else:
             row.operator("soma.send", text=L("Send", "Enviar"), icon="PLAY")
-        row.operator("soma.attach", text="", icon="IMAGE_DATA")
-        row.operator("soma.new_chat", text=L("New chat", "Nova conversa"), icon="ADD")
-        row.operator("soma.open_chat", text="", icon="TEXT")
-        row = layout.row(align=True)
-        row.prop(context.window_manager, "soma_language", text="")
-        row.operator("soma.update", text=L("Check for updates", "Verificar atualizações"), icon="FILE_REFRESH").check_only = True
 
+
+class SOMA_PT_options(Panel):
+    bl_label = ""
+    bl_idname = "SOMA_PT_options"
+    bl_parent_id = "SOMA_PT_chat"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "Soma"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw_header(self, context):
+        self.layout.label(text=L("Options", "Opções"), icon="PREFERENCES")
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = False
+        layout.prop(context.window_manager, "soma_language", text="", icon="WORLD")
+        col = layout.column(align=True)
+        col.operator("soma.new_chat", text=L("New chat", "Nova conversa"), icon="ADD")
+        col.operator("soma.open_chat", text=L("Full chat as text", "Conversa completa em texto"), icon="TEXT")
+        col.operator("soma.update", text=L("Check for updates", "Verificar atualizações"), icon="FILE_REFRESH").check_only = True
+        col.operator("soma.connect", text=L("Sign in again", "Entrar de novo"), icon="URL")
 
 CLASSES = (SomaAttachment, SOMA_OT_approve, SOMA_OT_send, SOMA_OT_stop, SOMA_OT_new_chat, SOMA_OT_connect, SOMA_OT_check,
-           SOMA_OT_attach, SOMA_OT_clear_attachments, SOMA_OT_open_chat, SOMA_OT_update, SOMA_PT_chat)
+           SOMA_OT_attach, SOMA_OT_clear_attachments, SOMA_OT_open_chat, SOMA_OT_update, SOMA_OT_suggest, SOMA_PT_chat, SOMA_PT_options)
 
 
 def register():
+    _state["icons"] = bpy.utils.previews.new()
+    _state["icons"].load("soma", os.path.join(os.path.dirname(__file__), "icons", "soma.png"), "IMAGE")
     for cls in CLASSES:
         bpy.utils.register_class(cls)
     wm = bpy.types.WindowManager
@@ -403,3 +548,6 @@ def unregister():
             delattr(wm, name)
     for cls in reversed(CLASSES):
         bpy.utils.unregister_class(cls)
+    if _state["icons"] is not None:
+        bpy.utils.previews.remove(_state["icons"])
+        _state["icons"] = None
