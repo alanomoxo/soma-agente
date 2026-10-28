@@ -20,7 +20,7 @@ O projeto é livre e feito para ajudar a comunidade de motion design, 3D e desig
 
 ### Windows
 1. Baixe `Soma-Agente-Instalador.exe` na [última Release](../../releases/latest).
-2. Abra, marque os programas e clique em **Instalar**. Não precisa ser administrador.
+2. Abra, marque os programas e clique em **Instalar**. Não precisa ser administrador. Na primeira instalação é preciso internet: o instalador baixa o Python oficial do python.org (cerca de 11 MB, com SHA-256 conferido) para o Soma Hub.
 3. Se o Windows mostrar "O Windows protegeu o computador", clique em *Mais informações > Executar assim mesmo* (o instalador ainda não tem assinatura digital).
 
 **Aviso de vírus?** Instaladores novos e sem assinatura digital costumam receber alertas genéricos (SmartScreen, aviso de "download incomum" do navegador ou detecções heurísticas como `Wacatac`/`Suschil`). O código é aberto e o executável é compilado só a partir deste repositório. Para conferir que o arquivo é o oficial, compare o SHA-256:

@@ -15,14 +15,6 @@ New-Item -ItemType Directory -Force $work, $out | Out-Null
 if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
 New-Item -ItemType Directory $stage | Out-Null
 
-# Python for the Soma Hub (official embeddable build, pinned and checked).
-$pythonZip = Join-Path $work "python-3.12.10-embed-amd64.zip"
-$pythonSha = "4ACBED6DD1C744B0376E3B1CF57CE906F9DC9E95E68824584C8099A63025A3C3"
-if (-not (Test-Path $pythonZip)) {
-    Invoke-WebRequest "https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip" -OutFile $pythonZip -UseBasicParsing
-}
-if ((Get-FileHash $pythonZip -Algorithm SHA256).Hash -ne $pythonSha) { throw "python embeddable zip hash mismatch" }
-
 function Copy-Core($destination) {
     Copy-Item (Join-Path $root "python\soma_core") (Join-Path $destination "soma_core") -Recurse
     Get-ChildItem $destination -Recurse -Directory -Filter __pycache__ | Remove-Item -Recurse -Force
@@ -82,7 +74,7 @@ $fx = Join-Path $env:WINDIR "Microsoft.NET\Framework64\v4.0.30319"
 $exe = Join-Path $out "Soma-Agente-Instalador.exe"
 & (Join-Path $fx "csc.exe") /nologo /target:winexe /optimize+ /codepage:65001 "/out:$exe" "/win32icon:$(Join-Path $work 'soma.ico')" "/win32manifest:$(Join-Path $root 'installer\app.manifest')" `
     "/resource:$(Join-Path $work 'cep.zip'),cep.zip" "/resource:$(Join-Path $work 'blender.zip'),blender.zip" "/resource:$(Join-Path $work 'c4d.zip'),c4d.zip" `
-    "/resource:$(Join-Path $work 'figma.zip'),figma.zip" "/resource:$pythonZip,python.zip" `
+    "/resource:$(Join-Path $work 'figma.zip'),figma.zip" `
     "/resource:$(Join-Path $art 'wordmark.png'),wordmark.png" "/resource:$(Join-Path $art 'mark.png'),mark.png" `
     /reference:System.Windows.Forms.dll /reference:System.Drawing.dll "/reference:$fx\System.IO.Compression.dll" "/reference:$fx\System.IO.Compression.FileSystem.dll" "/reference:$fx\System.Web.Extensions.dll" `
     (Join-Path $root "installer\Setup.cs")

@@ -29,15 +29,15 @@ using Microsoft.Win32;
 [assembly: AssemblyDescription("Instalador do Soma Agente, agente de IA de código aberto para programas criativos (github.com/alanomoxo/soma-agente)")]
 [assembly: AssemblyCompany("alanomoxo")]
 [assembly: AssemblyCopyright("Copyright (c) 2026 alanomoxo and the Soma Agente contributors. MIT License.")]
-[assembly: AssemblyVersion("1.6.0.0")]
-[assembly: AssemblyFileVersion("1.6.0.0")]
+[assembly: AssemblyVersion("1.6.1.0")]
+[assembly: AssemblyFileVersion("1.6.1.0")]
 
 namespace Soma
 {
     static class Paths
     {
         public const string BundleId = "com.framepilot.aeagent";
-        public const string Version = "1.6.0";
+        public const string Version = "1.6.1";
         // SOMA_TEST_ROOT redirects every write (files and registry) for testing.
         public static readonly string TestRoot = Environment.GetEnvironmentVariable("SOMA_TEST_ROOT");
         public static string Roaming { get { return TestRoot != null ? Path.Combine(TestRoot, "Roaming") : Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); } }
@@ -367,7 +367,7 @@ namespace Soma
             // Antigravity drive every open program. It starts at login.
             step("Instalando o Soma Hub…");
             StopHub();
-            ReplaceParts("figma.zip", Paths.FigmaHome, Path.Combine(Paths.Backups, "figma"), delegate (string stage) { Extract("python.zip", Path.Combine(stage, "python")); });
+            ReplaceParts("figma.zip", Paths.FigmaHome, Path.Combine(Paths.Backups, "figma"), delegate (string stage) { PreparePython(Path.Combine(stage, "python"), step); });
             using (RegistryKey run = Registry.CurrentUser.CreateSubKey(Paths.RunKey))
             {
                 run.DeleteValue("SomaAgenteFigma", false);
@@ -383,6 +383,45 @@ namespace Soma
             }
             File.WriteAllText(Path.Combine(Paths.Data, "installed-version.txt"), Paths.Version);
             StartHub();
+        }
+
+        // Python for the Soma Hub: the official embeddable build from python.org
+        // (pinned and checked), reused from the current install when present,
+        // instead of being packed inside this installer.
+        const string PythonUrl = "https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip";
+        const string PythonSha = "4acbed6dd1c744b0376e3b1cf57ce906f9dc9e95e68824584c8099a63025a3c3";
+
+        static void PreparePython(string destination, Action<string> step)
+        {
+            string current = Path.Combine(Paths.FigmaHome, "python");
+            if (File.Exists(Path.Combine(current, "python312.dll")) && File.Exists(Path.Combine(current, "pythonw.exe")))
+            {
+                CopyFolder(current, destination);
+                return;
+            }
+            string cache = Path.Combine(Paths.Data, @"cache\python-3.12.10-embed-amd64.zip");
+            if (!File.Exists(cache) || GitHubRelease.Sha256(File.ReadAllBytes(cache)) != PythonSha)
+            {
+                step("Baixando o Python (python.org)…");
+                byte[] data = GitHubRelease.Get(PythonUrl);
+                if (GitHubRelease.Sha256(data) != PythonSha) { throw new InvalidDataException("o Python baixado não confere com o SHA-256 esperado"); }
+                Directory.CreateDirectory(Path.GetDirectoryName(cache));
+                File.WriteAllBytes(cache, data);
+            }
+            ZipFile.ExtractToDirectory(cache, destination);
+        }
+
+        static void CopyFolder(string source, string destination)
+        {
+            Directory.CreateDirectory(destination);
+            foreach (string dir in Directory.GetDirectories(source, "*", SearchOption.AllDirectories))
+            {
+                Directory.CreateDirectory(Path.Combine(destination, dir.Substring(source.Length + 1)));
+            }
+            foreach (string file in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
+            {
+                File.Copy(file, Path.Combine(destination, file.Substring(source.Length + 1)), true);
+            }
         }
 
         // Like Replace, but swaps each top-level folder separately: Explorer or Figma
@@ -612,9 +651,14 @@ namespace Soma
     {
         const string Repository = "alanomoxo/soma-agente";
         const string Asset = "Soma-Agente-Instalador.exe";
-        public string Version, InstallerUrl, ShaUrl;
+        public string Version, InstallerUrl, ShaUrl, PageUrl;
 
-        static byte[] Get(string url)
+        public static string Sha256(byte[] data)
+        {
+            using (var sha = System.Security.Cryptography.SHA256.Create()) { return string.Concat(sha.ComputeHash(data).Select(b => b.ToString("x2"))); }
+        }
+
+        public static byte[] Get(string url)
         {
             ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
             using (var client = new WebClient())
@@ -628,7 +672,7 @@ namespace Soma
         {
             string json = Encoding.UTF8.GetString(Get("https://api.github.com/repos/" + Repository + "/releases/latest"));
             var release = new System.Web.Script.Serialization.JavaScriptSerializer().Deserialize<Dictionary<string, object>>(json);
-            var result = new GitHubRelease { Version = Convert.ToString(release["tag_name"]).TrimStart('v', 'V') };
+            var result = new GitHubRelease { Version = Convert.ToString(release["tag_name"]).TrimStart('v', 'V'), PageUrl = Convert.ToString(release["html_url"]) };
             foreach (object item in (System.Collections.ArrayList)release["assets"])
             {
                 var asset = (Dictionary<string, object>)item;
@@ -646,18 +690,6 @@ namespace Soma
             return va.CompareTo(vb);
         }
 
-        // Downloads the installer to %TEMP% and returns its path, only if its SHA-256 matches.
-        public string Download()
-        {
-            string expected = Encoding.UTF8.GetString(Get(ShaUrl)).Trim().Split(' ', '\t', '\n')[0].ToLowerInvariant();
-            byte[] data = Get(InstallerUrl);
-            string actual;
-            using (var sha = System.Security.Cryptography.SHA256.Create()) { actual = string.Concat(sha.ComputeHash(data).Select(b => b.ToString("x2"))); }
-            if (actual != expected) { throw new InvalidDataException("o arquivo baixado não confere com o SHA-256 publicado"); }
-            string file = Path.Combine(Path.GetTempPath(), "Soma-Agente-Instalador-" + Version + ".exe");
-            File.WriteAllBytes(file, data);
-            return file;
-        }
     }
 
     // Rounded button filled with the Soma gradient.
@@ -960,9 +992,9 @@ namespace Soma
             }
         }
 
-        // When a newer version is published on GitHub, this installer downloads
-        // it, checks its SHA-256 and hands over to it, so an old copy of the
-        // installer always installs the latest Soma Agente.
+        // When a newer version is published on GitHub, offers its download page.
+        // The installer itself never downloads and runs another program; the
+        // Soma Hub keeps installed copies up to date.
         void CheckGitHub()
         {
             if (Program.NoSelfUpdate) { return; }
@@ -974,26 +1006,16 @@ namespace Soma
                     if (latest == null || GitHubRelease.Compare(latest.Version, Paths.Version) <= 0) { return; }
                     BeginInvoke((Action)delegate
                     {
-                        installButton.Enabled = false;
                         status.ForeColor = Amber;
-                        status.Text = "Baixando a versão " + latest.Version + " do GitHub…";
-                    });
-                    string file = latest.Download();
-                    BeginInvoke((Action)delegate
-                    {
-                        Process.Start(new ProcessStartInfo(file, "/no-self-update") { UseShellExecute = false });
-                        Close();
-                    });
-                }
-                catch (Exception ex)
-                {
-                    BeginInvoke((Action)delegate
-                    {
-                        installButton.Enabled = true;
-                        status.ForeColor = Dim;
-                        status.Text = "Não foi possível verificar o GitHub (" + ex.Message + "). Instalando a versão " + Paths.Version + ".";
+                        status.Text = "A versão " + latest.Version + " já está no GitHub.";
+                        if (MessageBox.Show(this, "Existe uma versão mais nova do Soma Agente (" + latest.Version + ").\n\nAbrir a página de download no GitHub?", "Soma Agente", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+                        {
+                            Open(latest.PageUrl);
+                            Close();
+                        }
                     });
                 }
+                catch { }
             });
             worker.IsBackground = true;
             worker.Start();

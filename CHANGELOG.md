@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.1
+- Instalador bem menor (de 11 MB para cerca de 0,3 MB): o Python do Soma Hub é baixado do python.org na instalação (com SHA-256 conferido) em vez de vir embutido, o que reduz alertas falsos de antivírus.
+- O instalador não baixa nem executa mais outro programa: se houver versão nova, ele abre a página da Release. O Soma Hub continua atualizando sozinho.
+- Informações de autor e licença no arquivo do instalador.
+
 ## 1.6.0
 - Skills (SKILL.md) e conectores MCP em todos os programas, com Claude, ChatGPT e Antigravity.
 - O agente cria skills, instala skills do GitHub e cadastra conectores; conectores e skills baixadas esperam aprovação do usuário.

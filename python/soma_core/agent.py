@@ -25,7 +25,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import extensions, system
 
-VERSION = "1.6.0"
+VERSION = "1.6.1"
 CLAUDE_EFFORTS = ["low", "medium", "high", "xhigh", "max"]
 CLAUDE_MODELS = [
     {"id": "default", "model": None, "name": "Claude (default)", "efforts": [], "effort": None},
