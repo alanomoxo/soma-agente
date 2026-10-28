@@ -168,7 +168,7 @@ function runTool(call) {
 }
 
 // ------------------------------------------------------------------- UI
-var C = { card: "#26262b", user: "#3b2547", pink: "#E70E77", text: "#ececf1", dim: "#8e8e96", green: "#52d98b", orange: "#f4833d", red: "#ff626d", errorBg: "#3d1d22", errorText: "#ffb3b9" };
+var C = { window: "#1b1b1f", card: "#25252b", field: "#303037", fieldHover: "#3a3a42", user: "#3b2547", pink: "#E70E77", text: "#ececf1", dim: "#8e8e96", green: "#52d98b", orange: "#f4833d", red: "#ff626d", errorBg: "#3d1d22", errorText: "#ffb3b9" };
 
 function label(text, size, color) {
     var l = new ui.Label(text || "");
@@ -193,30 +193,50 @@ function card(layout, color, radius) {
     return c;
 }
 
-function button(color) {
+// Widgets take one radius or one per corner depending on the Cavalry version.
+function rounded(widget, radius) {
+    try { widget.setCornerRounding(radius); } catch (e) {
+        try { widget.setCornerRounding(radius, radius, radius, radius); } catch (e2) { /* square corners */ }
+    }
+}
+
+function pill(widget, color, height) {
+    widget.setBackgroundColor(color);
+    if (widget.setDrawStroke) { widget.setDrawStroke(false); }
+    widget.setFixedHeight(height || 26);
+    rounded(widget, 7);
+    return widget;
+}
+
+function button(color, height) {
     var b = new ui.Button("");
-    if (color) { b.setBackgroundColor(color); }
-    return b;
+    b.setFontSize(12);
+    return pill(b, color || C.field, height);
 }
 
 ui.setTitle("Soma Agente");
-ui.setMargins(10, 10, 10, 10);
+ui.setBackgroundColor(C.window);
+ui.setMargins(12, 12, 12, 12);
 ui.setSpaceBetween(8);
 
 // Header: brand, status and New chat
-var title = label("", 15, C.text);
+var brand = label("●", 15, C.pink);
+var title = label("", 16, C.text);
 title.setMarkdown("**Soma** Agente");
-var dot = label("●", 11, C.dim);
+var dot = label("●", 10, C.dim);
 var status = label("", 11, C.dim);
+status.setAlignment(0);
+status.setMinimumWidth(220);
 var newChat = button();
 var header = new ui.HLayout();
 header.setSpaceBetween(6);
-header.add(title);
+header.add(brand, title);
 header.addStretch();
 header.add(newChat);
 var statusRow = new ui.HLayout();
 statusRow.setSpaceBetween(6);
 statusRow.add(dot, status);
+statusRow.addStretch();
 
 // Which AI, model and language
 var provider = new ui.DropDown();
@@ -224,6 +244,7 @@ var provider = new ui.DropDown();
 var model = new ui.DropDown();
 var language = new ui.DropDown();
 ["Auto", "Português", "English"].forEach(function (p) { language.addEntry(p); });
+[provider, model, language].forEach(function (d) { pill(d, C.field); });
 var pickers = new ui.HLayout();
 pickers.setSpaceBetween(6);
 pickers.add(provider, model);
@@ -232,25 +253,23 @@ pickers.add(language);
 
 // Sign-in card and notice card (approvals, updates)
 var connectText = label("", 12, C.text);
-var connect = button(C.pink);
+var connect = button(C.pink, 28);
 var connectRow = new ui.HLayout();
-connectRow.add(connectText);
 connectRow.addStretch();
 connectRow.add(connect);
-var connectBox = vbox([12, 10, 12, 10], 6);
-connectBox.add(connectRow);
+var connectBox = vbox([14, 12, 14, 12], 8);
+connectBox.add(connectText, connectRow);
 var connectCard = card(connectBox, C.card, 10);
 
 var notice = label("", 12, C.text);
-var noticeYes = button(C.pink);
-var noticeNo = button();
+var noticeYes = button(C.pink, 28);
+var noticeNo = button(C.field, 28);
 var noticeRow = new ui.HLayout();
 noticeRow.setSpaceBetween(6);
-noticeRow.add(notice);
 noticeRow.addStretch();
-noticeRow.add(noticeYes, noticeNo);
-var noticeBox = vbox([12, 10, 12, 10], 6);
-noticeBox.add(noticeRow);
+noticeRow.add(noticeNo, noticeYes);
+var noticeBox = vbox([14, 12, 14, 12], 8);
+noticeBox.add(notice, noticeRow);
 var noticeCard = card(noticeBox, "#2f2635", 10);
 
 // Conversation: shows the current turn; a new turn gets a new scroll view so it starts at the top.
@@ -271,8 +290,10 @@ var attached = label("", 11, C.dim);
 var prompt = new ui.MultiLineEdit();
 prompt.setFixedHeight(56);
 prompt.setFontSize(12);
-var attach = button();
-var send = button(C.pink);
+prompt.setBackgroundColor(C.card);
+var attach = button(C.field, 28);
+var send = button(C.pink, 28);
+send.setMinimumWidth(88);
 var actions = new ui.HLayout();
 actions.setSpaceBetween(6);
 actions.add(attach);
@@ -332,7 +353,7 @@ function emptyView() {
     box.add(head, hint);
     box.addSpacing(4);
     SUGGESTIONS.forEach(function (s) {
-        var b = button("#33333a");
+        var b = button(C.field, 30);
         b.setText(L(s[0], s[1]));
         b.onClick = function () { prompt.setText(L(s[2], s[3])); };
         box.add(b);
@@ -379,18 +400,18 @@ function renderChat() {
     shownChat = key;
     if (start !== shownStart) { newScroll(); shownStart = start; } else { chat.clear(); }
     if (start > 0 || showHistory) {
-        var toggle = button("#2c2c31");
+        var toggle = button(C.field);
         toggle.setText(showHistory ? L("Hide earlier messages", "Ocultar mensagens anteriores") : L("Show " + start + " earlier messages", "Mostrar " + start + " mensagens anteriores"));
         toggle.onClick = function () { showHistory = !showHistory; renderChat(); };
         chat.add(toggle);
     }
-    if (!all.length) { chat.add(emptyView()); }
+    if (!all.length) { chat.addStretch(); chat.add(emptyView()); }
     messages.forEach(function (m) { chat.add(bubble(m)); });
     chat.addStretch();
 }
 
 function fitComposer() {
-    composer.setFixedHeight(attachments.length ? 138 : 114);
+    composer.setFixedHeight(attachments.length ? 140 : 116);
 }
 
 function render() {

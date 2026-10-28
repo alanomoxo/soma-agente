@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.7.2
+- Cavalry: acabamento do painel — botões e menus arredondados sem borda, fundo mais escuro, status alinhado, avisos ocupando a largura toda e sugestões centralizadas.
+
 ## 1.7.1
 - Cavalry: painel redesenhado com balões de conversa, cartões arredondados, texto formatado nas respostas, status com indicador colorido, sugestões para começar e a conversa atual sempre à vista ("Mostrar mensagens anteriores" para o resto).
 - Blender: painel redesenhado com o ícone do Soma, botão "+" de nova conversa no cabeçalho, mensagens separadas por quem falou, passos da IA agrupados, sugestões para começar, caixa de mensagem maior e um submenu "Opções" (idioma, atualizações, conversa em texto).
