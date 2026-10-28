@@ -13,8 +13,10 @@ ANTES
 WINDOWS
 1) Dê dois cliques em Soma-Agente-Instalador.exe
 2) Se aparecer "O Windows protegeu o computador", clique em
-   "Mais informações" > "Executar assim mesmo" (o instalador não é
-   assinado digitalmente, por isso o aviso).
+   "Mais informações" > "Executar assim mesmo". Essa tela é normal e
+   NÃO significa vírus: o Windows mostra para todo programa novo sem
+   assinatura digital paga. O Soma Agente é gratuito e de código aberto
+   (github.com/alanomoxo/soma-agente). Baixe sempre de lá.
 3) Marque os programas onde quer o Soma (os encontrados já vêm marcados)
    e clique em Instalar. Não precisa ser administrador.
 
