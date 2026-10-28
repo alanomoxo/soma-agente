@@ -66,6 +66,7 @@
     <select id="model" title="Model"></select>
     <select id="effort" title="Reasoning"></select>
     <button class="ghost" id="newChat" title="New chat">New</button>
+    <select id="language" title="Language"><option value="auto">Auto</option><option value="pt">PT</option><option value="en">EN</option></select>
   </div>
   <div class="status" id="status"><span class="dot"></span><span id="statusText">Connecting to Soma…</span><button class="ghost" id="connect" hidden>Connect</button></div>
   <div id="pending"></div>
@@ -112,6 +113,23 @@
 
   var el = function (id) { return document.getElementById(id); };
   var revision = -1, state = null, online = false, images = [], registered = false;
+  // Interface language: the shared Soma choice reported by the hub, else the browser language.
+  var lang = /^pt/i.test(navigator.language || "") ? "pt" : "en";
+  function L(en, pt) { return lang === "pt" ? pt : en; }
+  function applyTexts() {
+    document.documentElement.lang = lang === "pt" ? "pt-BR" : "en";
+    el("model").title = L("Model", "Modelo");
+    el("effort").title = L("Reasoning", "Raciocínio");
+    el("newChat").title = L("New chat", "Nova conversa");
+    el("newChat").textContent = L("New", "Nova");
+    el("language").title = L("Language", "Idioma");
+    el("connect").textContent = L("Connect", "Conectar");
+    el("offline").textContent = L("Soma Agente is not running on this computer. It starts automatically when you log in to Windows; you can also open “Soma Hub” from the Start menu. This panel reconnects by itself.", "O Soma Agente não está rodando neste computador. Ele inicia sozinho quando você entra no Windows; você também pode abrir o “Soma Hub” no menu Iniciar. Este painel reconecta sozinho.");
+    el("prompt").placeholder = L("Message Soma Agente", "Mensagem para o Soma Agente");
+    el("attach").title = L("Attach reference images", "Anexar imagens de referência");
+    el("attach").textContent = L("+ Image", "+ Imagem");
+    el("send").title = L("Send", "Enviar");
+  }
 
   function post(path, body) {
     return fetch(BRIDGE + path, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(body || {}) }).then(function (r) { return r.json(); });
@@ -119,6 +137,8 @@
 
   function render() {
     if (!state) { return; }
+    if (state.lang && state.lang !== lang) { lang = state.lang; applyTexts(); }
+    el("language").value = state.languageChoice || "auto";
     document.querySelectorAll("[data-provider]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.provider === state.provider)); });
     var model = el("model"), effort = el("effort");
     model.innerHTML = "";
@@ -138,11 +158,11 @@
     (state.pending || []).forEach(function (item) {
       var box = document.createElement("div");
       box.className = "ask";
-      box.textContent = "The agent wants to add a " + item.kind + ": " + item.name;
+      box.textContent = L("The agent wants to add a " + item.kind + ": ", "O agente quer adicionar " + (item.kind === "connector" ? "o conector" : "a skill") + ": ") + item.name;
       var small = document.createElement("small");
-      small.textContent = (item.detail || item.description) + (item.kind === "connector" ? " — connectors run programs on this computer." : "");
+      small.textContent = (item.detail || item.description) + (item.kind === "connector" ? L(" — connectors run programs on this computer.", " — conectores rodam programas neste computador.") : "");
       box.appendChild(small);
-      [["Approve", true], ["Reject", false]].forEach(function (choice) {
+      [[L("Approve", "Aprovar"), true], [L("Reject", "Recusar"), false]].forEach(function (choice) {
         var button = document.createElement("button");
         button.className = "ghost";
         button.textContent = choice[0];
@@ -155,7 +175,7 @@
     var atBottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 30;
     log.innerHTML = "";
     if (!state.messages.length) {
-      log.innerHTML = '<div class="welcome"><svg viewBox="282 122 148 148">' + MARK + '</svg><h2>What are we designing?</h2><div>Describe a screen, a post, or a change. I’ll build it in this file and check the result.</div></div>';
+      log.innerHTML = '<div class="welcome"><svg viewBox="282 122 148 148">' + MARK + '</svg><h2>' + L("What are we designing?", "O que vamos criar?") + '</h2><div>' + L("Describe a screen, a post, or a change. I’ll build it in this file and check the result.", "Descreva uma tela, um post ou uma mudança. Eu monto neste arquivo e confiro o resultado.") + '</div></div>';
     }
     state.messages.forEach(function (m) {
       var div = document.createElement("div");
@@ -189,7 +209,7 @@
     }).catch(function () {
       online = false; registered = false;
       el("offline").style.display = "block";
-      el("statusText").textContent = "Soma Agente is not running";
+      el("statusText").textContent = L("Soma Agente is not running", "O Soma Agente não está rodando");
       el("status").className = "status error";
       setTimeout(poll, 2500);
     });
@@ -199,12 +219,13 @@
   el("model").onchange = function () { post("/model", { model: el("model").value }); };
   el("effort").onchange = function () { post("/effort", { effort: el("effort").value }); };
   el("newChat").onclick = function () { post("/new"); };
+  el("language").onchange = function () { post("/language", { language: el("language").value }); };
   el("connect").onclick = function () { post("/login"); };
   el("attach").onclick = function () { el("file").click(); };
   el("file").onchange = function () {
     Array.prototype.forEach.call(el("file").files, function (file) {
       var reader = new FileReader();
-      reader.onload = function () { images.push({ name: file.name, data: String(reader.result).split(",")[1] }); el("attached").textContent = "Attached: " + images.map(function (i) { return i.name; }).join(", "); };
+      reader.onload = function () { images.push({ name: file.name, data: String(reader.result).split(",")[1] }); el("attached").textContent = L("Attached: ", "Anexado: ") + images.map(function (i) { return i.name; }).join(", "); };
       reader.readAsDataURL(file);
     });
     el("file").value = "";
@@ -219,6 +240,8 @@
   }
   el("send").onclick = send;
   el("prompt").onkeydown = function (e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } };
+  applyTexts();
+  el("statusText").textContent = L("Connecting to Soma…", "Conectando ao Soma…");
   poll();
 </script>
 </body>

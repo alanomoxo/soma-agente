@@ -1,4 +1,4 @@
-SOMA AGENTE 1.6.1 — COMO INSTALAR
+SOMA AGENTE 1.6.2 — COMO INSTALAR
 Agente de IA (Claude, ChatGPT ou Antigravity) para After Effects, Photoshop, Illustrator,
 Premiere Pro, Blender, Cinema 4D e Figma.
 

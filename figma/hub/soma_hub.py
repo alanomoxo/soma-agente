@@ -25,7 +25,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-from soma_core import Agent, VERSION, extensions  # noqa: E402
+from soma_core import Agent, VERSION, extensions, i18n  # noqa: E402
 from soma_hub_registry import Registry  # noqa: E402
 from soma_hub_updater import Updater  # noqa: E402
 
@@ -123,6 +123,7 @@ def state():
         "messages": [{"role": m["role"], "text": m["text"], "state": m.get("state")} for m in a.messages[-200:]],
         "toolCalls": host.open_calls(),
         "pending": extensions.pending(),
+        "lang": i18n.lang(), "languageChoice": i18n.choice(),
     }
 
 
@@ -261,6 +262,10 @@ class Handler(BaseHTTPRequestHandler):
             agent.login()
             self._send(200, {"ok": True})
         elif path == "/check":
+            agent.refresh()
+            self._send(200, {"ok": True})
+        elif path == "/language":
+            i18n.set_choice(body.get("language"))
             agent.refresh()
             self._send(200, {"ok": True})
         else:

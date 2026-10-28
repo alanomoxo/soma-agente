@@ -14,6 +14,7 @@ O projeto é livre e feito para ajudar a comunidade de motion design, 3D e desig
 - **Eases precisos** no After Effects (cubic-bezier, presets Expo, Back, etc.).
 - **Skills e conectores:** ensine fluxos ao agente com skills (`SKILL.md`) e ligue outros serviços por MCP (Notion, Google Drive, bancos de dados, ferramentas locais). O próprio agente pode criar skills, instalar skills do GitHub e cadastrar conectores, e tudo vale para todos os programas.
 - **Soma Hub + Antigravity:** um servidor MCP local que deixa o Antigravity comandar todos os programas abertos de uma vez (por exemplo: renderizar no Blender, montar no Photoshop e animar no After Effects).
+- **Português e inglês:** instalador e plugins nos dois idiomas. Troque no instalador (English/Português), no painel Adobe (Configurações > Aparência) ou no seletor de idioma do Blender, Cinema 4D e Figma; a escolha vale para todos.
 - **Atualização automática:** o Soma Hub verifica as [Releases](../../releases) deste repositório e instala as versões novas sozinho.
 
 ## Instalar

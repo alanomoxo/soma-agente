@@ -82,7 +82,30 @@
         execute_script: ["Applying a custom Photoshop operation", args.summary || "Running ExtendScript."],
         undo_last_action: ["Undoing", "Stepping History back one state."]
       };
-      return copy[tool];
+      if (window.SomaI18n.lang !== "pt") { return copy[tool]; }
+      var alvo = args.layerId !== undefined ? "a camada " + args.layerId : (args.layerName ? "“" + args.layerName + "”" : "a camada ativa");
+      var pt = {
+        document_overview: ["Lendo o documento", "Conferindo tamanho, resolução, modo e camada ativa."],
+        list_layers: ["Mapeando as camadas", "Lendo cada camada com posição, visibilidade e texto."],
+        create_document: ["Criando um documento", (args.width || "") + "×" + (args.height || "") + " px."],
+        create_text_layer: ["Adicionando texto", "“" + String(args.text || "").slice(0, 40) + "”"],
+        create_shape_layer: ["Desenhando uma forma", "Adicionando uma camada de forma (" + (args.shape || "retângulo") + ")."],
+        set_layer_properties: ["Ajustando uma camada", "Atualizando " + alvo + "."],
+        transform_layer: ["Transformando uma camada", "Escalando ou girando " + alvo + "."],
+        set_text: ["Editando texto", "Atualizando " + alvo + "."],
+        duplicate_layer: ["Duplicando uma camada", "Copiando " + alvo + "."],
+        delete_layers: ["Removendo camadas", "Apagando as camadas que não são mais necessárias."],
+        arrange_layer: ["Reorganizando camadas", "Movendo " + alvo + " na pilha."],
+        group_layers: ["Agrupando camadas", "Criando “" + (args.name || "Grupo") + "”."],
+        place_image: ["Colocando uma imagem", "Adicionando o arquivo como objeto inteligente."],
+        fill_layer: ["Adicionando um preenchimento", "Preenchendo uma nova camada com " + (args.color || "uma cor") + "."],
+        add_adjustment_layer: ["Adicionando um ajuste", "Criando uma camada de ajuste " + (args.type || "") + "."],
+        resize_document: ["Redimensionando", args.canvas ? "Mudando o tamanho do canvas." : "Reamostrando a imagem."],
+        preview_document: ["Conferindo o resultado", args.reason || "Gerando uma prévia para conferir."],
+        execute_script: ["Aplicando uma operação personalizada no Photoshop", args.summary || "Executando ExtendScript."],
+        undo_last_action: ["Desfazendo", "Voltando um estado no Histórico."]
+      };
+      return pt[tool];
     }
   });
 }());

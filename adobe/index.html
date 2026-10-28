@@ -142,7 +142,7 @@
         <div class="composer-meta">
           <span id="connectionLabel">Local bridge</span>
           <span>Return to send · Shift+Return for a new line</span>
-          <span id="versionLabel" class="version-label">v1.6.1</span>
+          <span id="versionLabel" class="version-label">v1.6.2</span>
         </div>
       </footer>
         </div>
@@ -290,6 +290,9 @@
       </div>
       <label class="setting-field color-picker-field">Choose a custom color<input id="accentInput" class="color-picker" type="color" value="#e70e77" aria-label="Choose a custom accent color" title="Open the color picker" /></label>
       <button id="resetAccentButton" class="settings-link" type="button">Use Soma pink</button>
+      <h3>Language</h3>
+      <label class="setting-field">Panel language<select id="uiLanguage"><option value="auto">Automatic</option><option value="pt" data-no-translate>Português (Brasil)</option><option value="en" data-no-translate>English</option></select></label>
+      <p>Used by every Soma program. The panel reloads to apply it.</p>
       <div class="legacy-tools-only"><h3>Tool dock</h3>
       <label class="setting-field">Dock position<select id="dockPosition" title="Place the dock on the left or right"><option value="left">Left</option><option value="right">Right</option></select></label>
       <label class="setting-field">Icon size<select id="dockSize" title="Choose compact or comfortable dock icons"><option value="compact">Compact</option><option value="comfortable">Comfortable</option></select></label>
@@ -298,6 +301,7 @@
       </div>
     </section>
 
+    <script src="js/i18n.js"></script>
     <script src="js/platform.js"></script>
     <script src="js/media.js"></script>
     <script src="js/references.js"></script>

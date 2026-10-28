@@ -43,9 +43,59 @@ def _saved(name):
         return None
 
 
-def _on_path(exe):
+def _path_dirs():
+    """PATH of this process plus, on Windows, the saved user and machine PATH
+    (a CLI installed after login is not yet in the inherited PATH)."""
     sep = ";" if WINDOWS else ":"
-    return [os.path.join(d, exe) for d in os.environ.get("PATH", "").split(sep) if d]
+    values = [os.environ.get("PATH", "")]
+    if WINDOWS:
+        import winreg
+        for hive, key in ((winreg.HKEY_CURRENT_USER, "Environment"),
+                          (winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment")):
+            try:
+                with winreg.OpenKey(hive, key) as handle:
+                    values.append(winreg.QueryValueEx(handle, "Path")[0])
+            except OSError:
+                pass
+    dirs = []
+    for value in values:
+        for d in value.split(sep):
+            d = os.path.expandvars(d.strip().strip('"'))
+            if d and d.lower() not in [x.lower() for x in dirs]:
+                dirs.append(d)
+    return dirs
+
+
+def _on_path(exe):
+    found = [os.path.join(d, exe) for d in _path_dirs()]
+    if WINDOWS:
+        local = os.environ.get("LOCALAPPDATA") or os.path.join(HOME, "AppData", "Local")
+        found.append(os.path.join(local, "Microsoft", "WinGet", "Links", exe))
+    return found
+
+
+def _in_node_modules(scope, exe):
+    """Native binaries that npm, pnpm or nvm installs keep inside node_modules
+    (on Windows npm only puts .cmd shims on the PATH)."""
+    if WINDOWS:
+        roaming = os.environ.get("APPDATA") or os.path.join(HOME, "AppData", "Roaming")
+        local = os.environ.get("LOCALAPPDATA") or os.path.join(HOME, "AppData", "Local")
+        roots = [os.path.join(roaming, "npm"), os.path.join(local, "pnpm")]
+        shim = os.path.splitext(exe)[0] + ".cmd"
+        roots += [d for d in _path_dirs() if os.path.isfile(os.path.join(d, shim))]
+    else:
+        roots = ["/opt/homebrew/lib", "/usr/local/lib", os.path.join(HOME, ".npm-global", "lib")]
+    found = []
+    for root in roots:
+        modules = [os.path.join(root, "node_modules")] + glob.glob(os.path.join(root, "global", "*", "node_modules"))
+        for module in modules:
+            base = os.path.join(module, scope)
+            for path, dirs, files in os.walk(base):
+                if path[len(base):].count(os.sep) >= 9:
+                    dirs[:] = []
+                if exe in files:
+                    found.append(os.path.join(path, exe))
+    return found
 
 
 def _version_key(name):
@@ -82,7 +132,7 @@ def find_claude():
         for path, _dirs, files in os.walk(folder):
             if exe in files:
                 candidates.append(os.path.join(path, exe))
-    candidates += _on_path(exe)
+    candidates += _on_path(exe) + _in_node_modules("@anthropic-ai", exe)
     for candidate in candidates:
         if candidate and _executable(candidate):
             return candidate
@@ -94,14 +144,12 @@ def find_codex():
     candidates = [os.environ.get("CODEX_BIN"), _saved("codex-path.txt")]
     if WINDOWS:
         local = os.environ.get("LOCALAPPDATA") or os.path.join(HOME, "AppData", "Local")
-        roaming = os.environ.get("APPDATA") or os.path.join(HOME, "AppData", "Roaming")
         bundled = glob.glob(os.path.join(local, "OpenAI", "Codex", "bin", "*", exe))
         candidates += sorted(bundled, key=lambda p: os.path.getmtime(p), reverse=True)
-        candidates.append(os.path.join(roaming, "npm", "node_modules", "@openai", "codex", "vendor", "x86_64-pc-windows-msvc", "codex", exe))
     else:
         candidates += ["/Applications/Codex.app/Contents/Resources/codex", "/opt/homebrew/bin/codex", "/usr/local/bin/codex"]
     candidates.append(os.path.join(HOME, ".local", "bin", exe))
-    candidates += _on_path(exe)
+    candidates += _on_path(exe) + _in_node_modules("@openai", exe)
     for candidate in candidates:
         if candidate and _executable(candidate):
             return candidate
@@ -115,6 +163,7 @@ def find_agy():
     if WINDOWS:
         local = os.environ.get("LOCALAPPDATA") or os.path.join(HOME, "AppData", "Local")
         candidates.append(os.path.join(local, "agy", "bin", exe))
+        candidates.append(os.path.join(local, "Programs", "Antigravity", "bin", exe))
     candidates.append(os.path.join(HOME, ".local", "bin", exe))
     candidates += _on_path(exe)
     for candidate in candidates:

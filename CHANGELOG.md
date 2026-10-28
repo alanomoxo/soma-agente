@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.2
+- Português (Brasil) e inglês em tudo: instalador (botão English/Português no topo), painel Adobe (Configurações > Aparência > Idioma), Blender, Cinema 4D e Figma. A escolha vale para todos os programas; sem escolha, segue o idioma do programa ou do Windows.
+- Detecção das IAs mais completa: Claude Code e Codex instalados por npm, pnpm, nvm ou WinGet, PATH atualizado sem reiniciar e a CLI do Antigravity em qualquer pasta do PATH.
+
 ## 1.6.1
 - Instalador bem menor (de 11 MB para cerca de 0,3 MB): o Python do Soma Hub é baixado do python.org na instalação (com SHA-256 conferido) em vez de vir embutido, o que reduz alertas falsos de antivírus.
 - O instalador não baixa nem executa mais outro programa: se houver versão nova, ele abre a página da Release. O Soma Hub continua atualizando sozinho.

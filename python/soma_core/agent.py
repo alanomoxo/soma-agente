@@ -24,8 +24,9 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import extensions, system
+from .i18n import L
 
-VERSION = "1.6.1"
+VERSION = "1.6.2"
 CLAUDE_EFFORTS = ["low", "medium", "high", "xhigh", "max"]
 CLAUDE_MODELS = [
     {"id": "default", "model": None, "name": "Claude (default)", "efforts": [], "effort": None},
@@ -196,7 +197,7 @@ class Agent:
         self.messages = []
         self.revision = 0
         self.busy = False
-        self.status = "Starting…"
+        self.status = L("Starting…", "Iniciando…")
         self.thread_id = None
         self.proc = None
         self.binary = None
@@ -303,9 +304,9 @@ class Agent:
             self.binary = system.find_claude() if self.provider == "claude" else system.find_codex()
             if not self.binary:
                 self.signed_in = None
-                self.set_status("%s not found — install %s" % (
+                self.set_status(L("%s not found — install %s", "%s não encontrado — instale %s") % (
                     "Claude Code" if self.provider == "claude" else "Codex",
-                    "the Claude app (claude.ai/download)" if self.provider == "claude" else "the Codex app (chatgpt.com/codex)"))
+                    L("the Claude app", "o app Claude") + " (claude.ai/download)" if self.provider == "claude" else L("the Codex app", "o app Codex") + " (chatgpt.com/codex)"))
                 return
             env = system.environment(self.binary)
             try:
@@ -322,9 +323,9 @@ class Agent:
                     self.signed_in = out.returncode == 0 and "logged in" in ((out.stdout or "") + (out.stderr or "")).lower()
             except (OSError, subprocess.SubprocessError) as error:
                 self.signed_in = None
-                self.set_status("Could not start %s: %s" % (self.provider_name, error))
+                self.set_status(L("Could not start %s: %s", "Não deu para iniciar o %s: %s") % (self.provider_name, error))
                 return
-            self.set_status("%s ready" % self.provider_name if self.signed_in else "%s is not signed in — click Connect" % self.provider_name)
+            self.set_status(L("%s ready", "%s pronto") % self.provider_name if self.signed_in else L("%s is not signed in — click Connect", "%s sem login — clique em Conectar") % self.provider_name)
         threading.Thread(target=work, daemon=True).start()
 
     def _refresh_agy(self):
@@ -333,7 +334,7 @@ class Agent:
         self.binary = system.find_agy()
         if not self.binary:
             self.signed_in = None
-            self.set_status("Antigravity CLI not found — install it from antigravity.google (agy)")
+            self.set_status(L("Antigravity CLI not found — install it from antigravity.google (agy)", "CLI do Antigravity não encontrada — instale pelo antigravity.google (agy)"))
             return
         try:
             out = subprocess.run([self.binary, "models"], capture_output=True, text=True, timeout=45,
@@ -348,20 +349,20 @@ class Agent:
         except (OSError, subprocess.SubprocessError):
             self.signed_in = False
         if self.signed_in and not system.ensure_antigravity_config():
-            self.set_status("Antigravity ready, but the Soma Hub is not running — reinstall Soma or start “Soma Hub”")
+            self.set_status(L("Antigravity ready, but the Soma Hub is not running — reinstall Soma or start “Soma Hub”", "Antigravity pronto, mas o Soma Hub não está rodando — reinstale o Soma ou abra o “Soma Hub”"))
             return
-        self.set_status("Antigravity ready" if self.signed_in else "Antigravity is not signed in — click Connect")
+        self.set_status(L("Antigravity ready", "Antigravity pronto") if self.signed_in else L("Antigravity is not signed in — click Connect", "Antigravity sem login — clique em Conectar"))
 
     def set_provider(self, provider):
         if provider not in PROVIDERS or provider == self.provider:
             return
         if self.busy:
-            self.add_message("error", "Wait for the current request to finish before switching the AI.")
+            self.add_message("error", L("Wait for the current request to finish before switching the AI.", "Espere o pedido atual terminar antes de trocar a IA."))
             return
         self.provider = provider
         self.settings.set("provider", provider)
         self.new_chat()
-        self.set_status("Starting %s…" % self.provider_name)
+        self.set_status(L("Starting %s…", "Iniciando o %s…") % self.provider_name)
         self.refresh()
 
     def login(self):
@@ -374,7 +375,7 @@ class Agent:
             system.open_login_window(self.binary, ["auth", "login"], "Claude login")
         else:
             system.open_login_window(self.binary, ["login"], "ChatGPT login")
-        self.set_status("Finish signing in in the browser, then click Check")
+        self.set_status(L("Finish signing in in the browser, then click Check", "Termine o login no navegador e clique em Verificar"))
 
         def poll():
             deadline = time.time() + 300
@@ -445,13 +446,13 @@ class Agent:
         if self.busy or (not text and not images):
             return False
         if not self.binary or not self.signed_in:
-            self.add_message("error", "Connect your %s account first (Connect button)." % self.provider_name)
+            self.add_message("error", L("Connect your %s account first (Connect button).", "Conecte sua conta %s primeiro (botão Conectar).") % self.provider_name)
             return False
-        label = text + ("" if not images else "\n[%d image%s attached]" % (len(images), "" if len(images) == 1 else "s"))
+        label = text + ("" if not images else L("\n[%d image(s) attached]", "\n[%d imagem(ns) anexada(s)]") % len(images))
         self.add_message("user", label)
         self.busy = True
         self.stop_requested = False
-        self.set_status("Working…")
+        self.set_status(L("Working…", "Trabalhando…"))
         threading.Thread(target=self._run_turn, args=(text, images), daemon=True).start()
         return True
 
@@ -472,10 +473,10 @@ class Agent:
         self.proc = None
         self.busy = False
         if self.stop_requested:
-            self.add_message("status", "Stopped.")
+            self.add_message("status", L("Stopped.", "Interrompido."))
         elif error:
             self.add_message("error", error)
-        self.set_status("%s ready" % self.provider_name)
+        self.set_status(L("%s ready", "%s pronto") % self.provider_name)
         for path in self._temp_files:
             try:
                 os.remove(path)
@@ -584,7 +585,7 @@ class Agent:
             return None
         if auth_failed:
             self.signed_in = False
-            return "Claude is not signed in. Click Connect and finish the login in your browser."
+            return L("Claude is not signed in. Click Connect and finish the login in your browser.", "O Claude está sem login. Clique em Conectar e termine o login no navegador.")
         if final and not final.get("is_error"):
             return None
         if not final:
@@ -662,7 +663,7 @@ class Agent:
         detail = (result and (result.get("error") or result.get("status"))) or "".join(stderr).strip()[-1500:]
         if "auth" in detail.lower() or "login" in detail.lower():
             self.signed_in = False
-            return "Antigravity is not signed in. Click Connect and finish the login."
+            return L("Antigravity is not signed in. Click Connect and finish the login.", "O Antigravity está sem login. Clique em Conectar e termine o login.")
         return detail or "Antigravity exited with code %s." % self.proc.returncode
 
     def _run_codex(self, text, images, key):
@@ -731,5 +732,5 @@ class Agent:
         lowered = detail.lower()
         if "not logged in" in lowered or "unauthorized" in lowered or "401" in lowered:
             self.signed_in = False
-            return "ChatGPT is not signed in. Click Connect and finish the login in your browser."
+            return L("ChatGPT is not signed in. Click Connect and finish the login in your browser.", "O ChatGPT está sem login. Clique em Conectar e termine o login no navegador.")
         return detail

@@ -577,7 +577,50 @@
         preview_frames: ["Rendering verification frames", args.reason || "Rendering representative frames so the result can be inspected visually."],
         undo_last_action: ["Restoring the test checkpoint", "Reverting the temporary edge-case change before continuing."]
       };
-      return copy[tool];
+      if (window.SomaI18n.lang !== "pt") { return copy[tool]; }
+      var alvo = args.layerId !== undefined ? "camada " + args.layerId : (args.index !== undefined ? "camada " + args.index : "a composição ativa");
+      var pt = {
+        project_overview: ["Analisando o projeto", "Lendo a composição ativa, dimensões, duração e seleção atual."],
+        project_map: ["Mapeando o projeto", "Lendo composições, precomps, fontes, parents, mattes e mídias faltando."],
+        list_layers: ["Mapeando a composição", "Identificando cada camada e o seu transform atual."],
+        get_selected_layers: ["Lendo a seleção", "Usando a seleção atual como contexto."],
+        get_selected_properties: ["Lendo as propriedades selecionadas", "Coletando as propriedades selecionadas como contexto."],
+        get_layer_properties: ["Inspecionando propriedades", "Examinando " + alvo + (args.search ? " em busca de “" + args.search + "”." : ".")],
+        list_expressions: ["Inspecionando expressões", "Conferindo o código, as dependências e os erros das expressões."],
+        get_keyframes: ["Analisando o tempo da animação", "Lendo tempos, valores e interpolação dos keyframes em " + alvo + "."],
+        create_text_layer: ["Criando texto editável", "Adicionando uma camada de texto nativa do After Effects."],
+        create_shape_layer: ["Criando uma forma", "Criando uma camada de forma vetorial editável."],
+        rename_composition: ["Renomeando a composição", "Mudando o nome da composição ativa para “" + (args.name || "o nome pedido") + "”."],
+        set_layer_transform: ["Ajustando o layout", "Atualizando o transform de " + alvo + "."],
+        rename_layer: ["Renomeando uma camada", "Mudando " + alvo + " para “" + (args.name || "o nome pedido") + "”."],
+        remove_layer: ["Removendo a camada antiga", "Apagando a camada substituída em vez de deixar uma cópia escondida."],
+        move_layer: ["Reorganizando as camadas", "Colocando a camada refeita na posição certa da pilha."],
+        duplicate_layer: ["Duplicando uma camada", "Copiando a camada com propriedades e animação."],
+        duplicate_composition: ["Duplicando a composição", "Criando uma cópia independente da composição ativa."],
+        set_layer_attributes: ["Atualizando a camada", "Aplicando visibilidade, switches e tempo."],
+        precompose_layers: ["Criando uma precomp", "Movendo as camadas pedidas para “" + (args.name || "uma nova precomp") + "”."],
+        set_parent: ["Atualizando a hierarquia", "Definindo o parent pedido."],
+        set_track_matte: ["Configurando o track matte", "Aplicando a fonte e o modo do matte."],
+        create_control_layer: ["Criando uma camada de controle", "Adicionando a camada " + (args.type || "de controle") + " pedida."],
+        measure_layer_bounds: ["Medindo os limites", "Conferindo o tamanho real das camadas em momentos representativos."],
+        sample_property: ["Amostrando valores animados", "Avaliando a propriedade ao longo do tempo para conferir os números."],
+        remove_keyframes: ["Removendo keyframes", "Apagando só os keyframes pedidos."],
+        set_keyframe_easing: ["Refinando as curvas", "Aplicando interpolação e influência nos keyframes existentes."],
+        apply_ease_curve: ["Aplicando o ease", "Aplicando " + (args.preset || (args.bezier ? window.AEEases.format(args.bezier) : "a curva pedida")) + " em " + (args.useSelectedKeys ? "os keyframes selecionados." : alvo + ".")],
+        get_ease_curves: ["Lendo o easing", "Medindo as curvas atuais entre os keyframes."],
+        set_property_value: ["Atualizando uma propriedade", "Aplicando o valor pedido na propriedade inspecionada."],
+        set_expression: ["Atualizando a expressão", "Aplicando e avaliando uma expressão do After Effects."],
+        set_keyframes: ["Atualizando a animação", "Gravando keyframes com interpolação " + (args.interpolation || "linear") + "."],
+        add_effect: ["Adicionando um efeito", "Aplicando “" + (args.name || args.matchName || "o efeito pedido") + "” em " + alvo + "."],
+        create_expression_control: ["Criando um controle", "Adicionando o controle “" + (args.name || args.controlType || "controle") + "” e ligando nas expressões."],
+        configure_motion_graphics_template: ["Configurando o Essential Graphics", "Preparando a composição ativa como template de Motion Graphics."],
+        add_property_to_essential_graphics: ["Expondo um controle editável", "Adicionando “" + (args.displayName || "a propriedade") + "” ao Essential Graphics."],
+        export_motion_graphics_template: ["Exportando o template", "Empacotando a composição como um novo arquivo .mogrt."],
+        execute_script: ["Aplicando uma operação personalizada no After Effects", args.summary || "Executando a mudança pedida via ExtendScript."],
+        preview_frames: ["Renderizando quadros para conferir", args.reason || "Renderizando quadros representativos para conferir o resultado."],
+        undo_last_action: ["Voltando ao ponto de teste", "Desfazendo a mudança temporária antes de continuar."]
+      };
+      return pt[tool];
     }
   });
 }());

@@ -86,6 +86,30 @@
         preview_frames: ["Checking the frames", args.reason || "Exporting frames to inspect visually."],
         execute_script: ["Applying a custom Premiere Pro operation", args.summary || "Running ExtendScript."]
       };
+      if (window.SomaI18n.lang === "pt") {
+        var alvo = args.track ? "o clipe " + args.clip + " da " + args.track : "o clipe";
+        copy = {
+          project_overview: ["Lendo o projeto", "Conferindo sequências, tamanho de quadro e frame rate."],
+          list_timeline: ["Mapeando a timeline", "Lendo cada clipe com o seu tempo."],
+          list_project_items: ["Lendo o painel Project", "Listando bins, clipes e sequências."],
+          import_files: ["Importando mídia", "Adicionando " + ((args.paths || []).length) + " arquivo(s) ao projeto."],
+          add_clip_to_timeline: ["Editando a timeline", "Colocando um clipe na " + (args.track || "V1") + "."],
+          move_clip: ["Movendo um clipe", "Reposicionando " + alvo + "."],
+          trim_clip: ["Aparando", "Ajustando " + alvo + "."],
+          remove_clip: ["Removendo um clipe", "Apagando " + alvo + (args.ripple ? " e fechando o espaço." : ".")],
+          set_clip_enabled: ["Atualizando um clipe", (args.enabled ? "Ativando " : "Desativando ") + alvo + "."],
+          rename_clip: ["Renomeando um clipe", "Dando a " + alvo + " o nome “" + (args.name || "") + "”."],
+          get_clip_components: ["Inspecionando efeitos", "Lendo os efeitos de " + alvo + "."],
+          set_clip_property: ["Ajustando " + (args.property || "uma propriedade"), (args.keyframes ? "Animando " : "Definindo ") + (args.component || "") + " em " + alvo + "."],
+          add_video_effect: ["Adicionando um efeito", "Aplicando " + (args.effectName || "um efeito") + " em " + alvo + "."],
+          add_transition: ["Adicionando uma transição", (args.transitionName || "Cross Dissolve") + " em " + alvo + "."],
+          add_marker: ["Adicionando um marcador", "Em " + (args.time || 0) + " s."],
+          set_playhead: ["Movendo o indicador de reprodução", "Para " + (args.time || 0) + " s."],
+          create_sequence_from_clips: ["Criando uma sequência", "“" + (args.name || "Soma Sequence") + "”."],
+          preview_frames: ["Conferindo os quadros", args.reason || "Exportando quadros para conferir."],
+          execute_script: ["Aplicando uma operação personalizada no Premiere Pro", args.summary || "Executando ExtendScript."]
+        };
+      }
       return copy[tool];
     }
   });

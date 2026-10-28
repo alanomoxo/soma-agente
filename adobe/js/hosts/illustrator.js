@@ -67,7 +67,26 @@
         execute_script: ["Applying a custom Illustrator operation", args.summary || "Running ExtendScript."],
         undo_last_action: ["Undoing", "Reverting the last change."]
       };
-      return copy[tool];
+      if (window.SomaI18n.lang !== "pt") { return copy[tool]; }
+      var pt = {
+        document_overview: ["Lendo o documento", "Conferindo pranchetas, camadas e seleção."],
+        list_items: ["Mapeando a arte", "Lendo os itens com posição, cores e texto."],
+        create_document: ["Criando um documento", (args.width || "") + "×" + (args.height || "") + " pt."],
+        add_artboard: ["Adicionando uma prancheta", "Criando “" + (args.name || "uma nova prancheta") + "”."],
+        create_shape: ["Desenhando", "Adicionando uma forma (" + (args.shape || "forma") + ")."],
+        create_text: ["Adicionando texto", "“" + String(args.text || "").slice(0, 40) + "”"],
+        set_item_properties: ["Ajustando um item", "Atualizando posição, tamanho ou estilo."],
+        group_items: ["Agrupando", "Agrupando " + ((args.uuids || []).length) + " itens."],
+        ungroup_item: ["Desagrupando", "Soltando os itens do grupo."],
+        delete_items: ["Removendo itens", "Apagando os itens que não são mais necessários."],
+        duplicate_item: ["Duplicando", "Copiando um item."],
+        arrange_item: ["Reorganizando", "Movendo um item (" + (args.order || "") + ")."],
+        place_image: ["Colocando um arquivo", "Adicionando o arquivo na prancheta."],
+        preview_artboard: ["Conferindo o resultado", args.reason || "Exportando uma prévia para conferir."],
+        execute_script: ["Aplicando uma operação personalizada no Illustrator", args.summary || "Executando ExtendScript."],
+        undo_last_action: ["Desfazendo", "Voltando a última mudança."]
+      };
+      return pt[tool];
     }
   });
 }());

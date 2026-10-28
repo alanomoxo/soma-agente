@@ -29,15 +29,15 @@ using Microsoft.Win32;
 [assembly: AssemblyDescription("Instalador do Soma Agente, agente de IA de código aberto para programas criativos (github.com/alanomoxo/soma-agente)")]
 [assembly: AssemblyCompany("alanomoxo")]
 [assembly: AssemblyCopyright("Copyright (c) 2026 alanomoxo and the Soma Agente contributors. MIT License.")]
-[assembly: AssemblyVersion("1.6.1.0")]
-[assembly: AssemblyFileVersion("1.6.1.0")]
+[assembly: AssemblyVersion("1.6.2.0")]
+[assembly: AssemblyFileVersion("1.6.2.0")]
 
 namespace Soma
 {
     static class Paths
     {
         public const string BundleId = "com.framepilot.aeagent";
-        public const string Version = "1.6.1";
+        public const string Version = "1.6.2";
         // SOMA_TEST_ROOT redirects every write (files and registry) for testing.
         public static readonly string TestRoot = Environment.GetEnvironmentVariable("SOMA_TEST_ROOT");
         public static string Roaming { get { return TestRoot != null ? Path.Combine(TestRoot, "Roaming") : Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); } }
@@ -55,6 +55,33 @@ namespace Soma
         public static string CsxsKey(int version) { return RegistryRoot + @"\Adobe\CSXS." + version; }
         public static string RunKey { get { return RegistryRoot + @"\Microsoft\Windows\CurrentVersion\Run"; } }
         public static string Stamp() { return DateTime.Now.ToString("yyyyMMdd-HHmmss-fff"); }
+    }
+
+    // Interface language, Portuguese (Brazil) or English. Shared with every plugin
+    // through %APPDATA%\AE Agent\language.txt; without it, Windows' language decides.
+    static class Lang
+    {
+        public static bool En = Load();
+        static string File_ { get { return Path.Combine(Paths.Data, "language.txt"); } }
+
+        static bool Load()
+        {
+            try
+            {
+                string saved = File.Exists(File_) ? File.ReadAllText(File_).Trim().ToLowerInvariant() : "";
+                if (saved == "pt" || saved == "en") { return saved == "en"; }
+            }
+            catch { }
+            return !System.Globalization.CultureInfo.CurrentUICulture.Name.StartsWith("pt", StringComparison.OrdinalIgnoreCase);
+        }
+
+        public static void Save()
+        {
+            Directory.CreateDirectory(Paths.Data);
+            File.WriteAllText(File_, En ? "en" : "pt");
+        }
+
+        public static string T(string pt, string en) { return En ? en : pt; }
     }
 
     class App
@@ -91,7 +118,7 @@ namespace Soma
                 if (year >= minYear && year > best && File.Exists(Path.Combine(dir, exe))) { best = year; app.Exe = Path.Combine(dir, exe); }
             }
             app.Found = best > 0;
-            app.Detail = app.Found ? label + " " + best : label + " " + minYear + "+ não encontrado";
+            app.Detail = app.Found ? label + " " + best : label + " " + minYear + Lang.T("+ não encontrado", "+ not found");
             return app;
         }
 
@@ -129,7 +156,7 @@ namespace Soma
                 }
             }
             blender.Found = blender.Targets.Count > 0;
-            blender.Detail = blender.Found ? "Blender " + string.Join(", ", versions) : "Blender 4.2+ não encontrado (abra o Blender uma vez)";
+            blender.Detail = blender.Found ? "Blender " + string.Join(", ", versions) : Lang.T("Blender 4.2+ não encontrado (abra o Blender uma vez)", "Blender 4.2+ not found (open Blender once)");
             blender.Installed = blender.Targets.Any(t => Directory.Exists(Path.Combine(t, @"scripts\addons\soma_agente")));
             apps.Add(blender);
 
@@ -146,20 +173,20 @@ namespace Soma
                 }
             }
             c4d.Found = c4d.Targets.Count > 0;
-            c4d.Detail = c4d.Found ? "Cinema 4D " + string.Join(", ", years) : "Cinema 4D 2024+ não encontrado (abra o C4D uma vez)";
+            c4d.Detail = c4d.Found ? "Cinema 4D " + string.Join(", ", years) : Lang.T("Cinema 4D 2024+ não encontrado (abra o C4D uma vez)", "Cinema 4D 2024+ not found (open C4D once)");
             c4d.Installed = c4d.Targets.Any(t => Directory.Exists(Path.Combine(t, @"plugins\soma_agente")));
             apps.Add(c4d);
 
             var figma = new App { Id = "figma", Label = "Figma", ProcessName = "Figma" };
             string figmaDir = Path.Combine(Paths.RealLocal, "Figma");
             figma.Found = File.Exists(Path.Combine(figmaDir, "Figma.exe")) || Dirs(figmaDir, "app-*").Any();
-            figma.Detail = figma.Found ? "Figma (app desktop)" : "Figma desktop não encontrado";
+            figma.Detail = figma.Found ? Lang.T("Figma (app desktop)", "Figma (desktop app)") : Lang.T("Figma desktop não encontrado", "Figma desktop not found");
             figma.Installed = Directory.Exists(Paths.FigmaHome);
             apps.Add(figma);
 
             var antigravity = new App { Id = "antigravity", Label = "Antigravity" };
             antigravity.Found = Antigravity.Found();
-            antigravity.Detail = antigravity.Found ? "Antigravity: comandar todos os apps de uma vez" : "Antigravity não encontrado (antigravity.google)";
+            antigravity.Detail = antigravity.Found ? Lang.T("Antigravity: comandar todos os apps de uma vez", "Antigravity: drive every app at once") : Lang.T("Antigravity não encontrado (antigravity.google)", "Antigravity not found (antigravity.google)");
             antigravity.Installed = Antigravity.Connected();
             apps.Add(antigravity);
 
@@ -171,16 +198,62 @@ namespace Soma
                 {
                     app.Found = false;
                     app.Installed = false;
-                    app.Detail = app.Label + " não encontrado";
+                    app.Detail = app.Label + Lang.T(" não encontrado", " not found");
                 }
             }
             return apps;
         }
 
+        // PATH of this process plus the saved user and machine PATH: a CLI installed
+        // after login is not yet in the PATH that Explorer handed to us.
+        static List<string> PathDirs()
+        {
+            var dirs = new List<string>();
+            foreach (string path in new[] { Environment.GetEnvironmentVariable("PATH"), Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User), Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine) })
+            {
+                foreach (string d in (path ?? "").Split(';'))
+                {
+                    string dir = Environment.ExpandEnvironmentVariables(d.Trim().Trim('"'));
+                    if (dir.Length > 0 && !dirs.Contains(dir, StringComparer.OrdinalIgnoreCase)) { dirs.Add(dir); }
+                }
+            }
+            return dirs;
+        }
+
         static IEnumerable<string> OnPath(string exe)
         {
-            string path = Environment.GetEnvironmentVariable("PATH") ?? "";
-            return path.Split(';').Where(d => d.Trim().Length > 0).Select(d => Path.Combine(d.Trim(), exe));
+            var found = new List<string>();
+            foreach (string dir in PathDirs()) { try { found.Add(Path.Combine(dir, exe)); } catch { } }
+            found.Add(Path.Combine(Paths.RealLocal, @"Microsoft\WinGet\Links\" + exe));
+            return found;
+        }
+
+        // Native binaries that npm, pnpm or nvm installs keep inside node_modules
+        // (npm itself only puts .cmd shims on the PATH).
+        static IEnumerable<string> InNodeModules(string scope, string exe)
+        {
+            var roots = new List<string> { Path.Combine(Paths.RealRoaming, "npm"), Path.Combine(Paths.RealLocal, "pnpm") };
+            string shim = Path.GetFileNameWithoutExtension(exe) + ".cmd";
+            foreach (string dir in PathDirs()) { try { if (File.Exists(Path.Combine(dir, shim))) { roots.Add(dir); } } catch { } }
+            var found = new List<string>();
+            foreach (string root in roots)
+            {
+                var modules = new List<string> { Path.Combine(root, "node_modules") };
+                foreach (string g in Dirs(Path.Combine(root, "global"), "*")) { modules.Add(Path.Combine(g, "node_modules")); }
+                foreach (string m in modules) { Search(Path.Combine(m, scope), exe, 9, found); }
+            }
+            return found;
+        }
+
+        static void Search(string dir, string exe, int depth, List<string> found)
+        {
+            try
+            {
+                string file = Path.Combine(dir, exe);
+                if (File.Exists(file)) { found.Add(file); }
+                if (depth > 0) { foreach (string d in Directory.GetDirectories(dir)) { Search(d, exe, depth - 1, found); } }
+            }
+            catch { }
         }
 
         static bool AnyExists(IEnumerable<string> files)
@@ -202,6 +275,7 @@ namespace Soma
                 try { c.AddRange(Directory.GetFiles(root, "claude.exe", SearchOption.AllDirectories)); } catch { }
             }
             c.AddRange(OnPath("claude.exe"));
+            c.AddRange(InNodeModules("@anthropic-ai", "claude.exe"));
             return AnyExists(c);
         }
 
@@ -209,9 +283,17 @@ namespace Soma
         {
             var c = new List<string>();
             c.AddRange(Dirs(Path.Combine(Paths.RealLocal, @"OpenAI\Codex\bin"), "*").Select(d => Path.Combine(d, "codex.exe")));
-            c.Add(Path.Combine(Paths.RealRoaming, @"npm\node_modules\@openai\codex\vendor\x86_64-pc-windows-msvc\codex\codex.exe"));
             c.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), @".local\bin\codex.exe"));
             c.AddRange(OnPath("codex.exe"));
+            c.AddRange(InNodeModules("@openai", "codex.exe"));
+            return AnyExists(c);
+        }
+
+        // Antigravity CLI (agy), which the agent runs; the Antigravity app alone is not enough.
+        public static bool Agy()
+        {
+            var c = new List<string> { Path.Combine(Paths.RealLocal, @"agy\bin\agy.exe"), Path.Combine(Paths.RealLocal, @"Programs\Antigravity\bin\agy.exe"), Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), @".local\bin\agy.exe") };
+            c.AddRange(OnPath("agy.exe"));
             return AnyExists(c);
         }
 
@@ -333,7 +415,7 @@ namespace Soma
             var adobe = apps.Where(a => a.Adobe).ToList();
             if (adobe.Count > 0)
             {
-                step("Instalando o painel Adobe…");
+                step(Lang.T("Instalando o painel Adobe…", "Installing the Adobe panel…"));
                 string hosts = string.Join("\n", adobe.SelectMany(a => a.HostCodes.Select(code => "      <Host Name=\"" + code + "\" Version=\"" + (code == "PHXS" || code == "PHSP" ? "[26.0,99.9]" : code == "ILST" ? "[29.0,99.9]" : "[25.0,99.9]") + "\" />")));
                 Replace("cep.zip", Paths.CepTarget, Paths.CepBackups, Paths.BundleId, delegate (string stage)
                 {
@@ -348,7 +430,7 @@ namespace Soma
             {
                 foreach (string target in app.Targets)
                 {
-                    step("Instalando no " + app.Label + " " + Path.GetFileName(target) + "…");
+                    step(Lang.T("Instalando no ", "Installing in ") + app.Label + " " + Path.GetFileName(target) + "…");
                     Replace("blender.zip", Path.Combine(target, @"scripts\addons\soma_agente"), Path.Combine(Paths.Backups, "blender"), "soma_agente-" + Path.GetFileName(target), null);
                     string startup = Path.Combine(target, @"scripts\startup");
                     Directory.CreateDirectory(startup);
@@ -359,13 +441,13 @@ namespace Soma
             {
                 foreach (string target in app.Targets)
                 {
-                    step("Instalando no " + Path.GetFileName(target) + "…");
+                    step(Lang.T("Instalando no ", "Installing in ") + Path.GetFileName(target) + "…");
                     Replace("c4d.zip", Path.Combine(target, @"plugins\soma_agente"), Path.Combine(Paths.Backups, "cinema4d"), "soma_agente-" + Path.GetFileName(target), null);
                 }
             }
             // The Soma Hub (also the Figma helper) is always installed: it lets
             // Antigravity drive every open program. It starts at login.
-            step("Instalando o Soma Hub…");
+            step(Lang.T("Instalando o Soma Hub…", "Installing the Soma Hub…"));
             StopHub();
             ReplaceParts("figma.zip", Paths.FigmaHome, Path.Combine(Paths.Backups, "figma"), delegate (string stage) { PreparePython(Path.Combine(stage, "python"), step); });
             using (RegistryKey run = Registry.CurrentUser.CreateSubKey(Paths.RunKey))
@@ -378,10 +460,11 @@ namespace Soma
             string token = HubToken();
             if (apps.Any(a => a.Id == "antigravity"))
             {
-                step("Conectando o Antigravity a todos os apps…");
+                step(Lang.T("Conectando o Antigravity a todos os apps…", "Connecting Antigravity to every app…"));
                 Antigravity.Connect(token);
             }
             File.WriteAllText(Path.Combine(Paths.Data, "installed-version.txt"), Paths.Version);
+            Lang.Save();
             StartHub();
         }
 
@@ -402,9 +485,9 @@ namespace Soma
             string cache = Path.Combine(Paths.Data, @"cache\python-3.12.10-embed-amd64.zip");
             if (!File.Exists(cache) || GitHubRelease.Sha256(File.ReadAllBytes(cache)) != PythonSha)
             {
-                step("Baixando o Python (python.org)…");
+                step(Lang.T("Baixando o Python (python.org)…", "Downloading Python (python.org)…"));
                 byte[] data = GitHubRelease.Get(PythonUrl);
-                if (GitHubRelease.Sha256(data) != PythonSha) { throw new InvalidDataException("o Python baixado não confere com o SHA-256 esperado"); }
+                if (GitHubRelease.Sha256(data) != PythonSha) { throw new InvalidDataException(Lang.T("o Python baixado não confere com o SHA-256 esperado", "the downloaded Python does not match the expected SHA-256")); }
                 Directory.CreateDirectory(Path.GetDirectoryName(cache));
                 File.WriteAllBytes(cache, data);
             }
@@ -596,7 +679,7 @@ namespace Soma
         public static bool Found()
         {
             string local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            return File.Exists(Path.Combine(local, @"Programs\Antigravity\Antigravity.exe")) || File.Exists(Path.Combine(local, @"agy\bin\agy.exe")) || Directory.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), @".gemini\antigravity"));
+            return File.Exists(Path.Combine(local, @"Programs\Antigravity\Antigravity.exe")) || Detect.Agy() ||Directory.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), @".gemini\antigravity"));
         }
 
         public static bool Connected()
@@ -761,7 +844,7 @@ namespace Soma
         FlowLayoutPanel list, aiRow;
         TableLayoutPanel root;
         GradientButton installButton, secondButton;
-        LinkLabel uninstallLink;
+        LinkLabel uninstallLink, languageLink;
         List<App> apps;
         Dictionary<string, CheckBox> boxes = new Dictionary<string, CheckBox>();
         bool done;
@@ -802,17 +885,20 @@ namespace Soma
             header.Controls.Add(new PictureBox { Image = Installer.Picture("mark.png"), SizeMode = PictureBoxSizeMode.Zoom, Size = new Size(52, 52), Margin = new Padding(0, 0, 10, 0) });
             header.Controls.Add(new PictureBox { Image = Installer.Picture("wordmark.png"), SizeMode = PictureBoxSizeMode.Zoom, Size = new Size(140, 52), Margin = new Padding(0) });
             header.Controls.Add(new Label { Text = "Agente", ForeColor = Muted, Font = new Font("Segoe UI", 13f), AutoSize = true, Margin = new Padding(6, 14, 0, 0) });
+            languageLink = new LinkLabel { AutoSize = true, LinkColor = Dim, ActiveLinkColor = Pink, VisitedLinkColor = Dim, LinkBehavior = LinkBehavior.HoverUnderline, Margin = new Padding(18, 18, 0, 0) };
+            languageLink.LinkClicked += delegate { Lang.En = !Lang.En; ApplyLanguage(); };
+            header.Controls.Add(languageLink);
 
-            title = new Label { Text = "Agente de IA para seus programas", Font = new Font("Segoe UI Semibold", 15f), AutoSize = true, Margin = new Padding(0, 0, 0, 4) };
-            subtitle = new Label { Text = "Marque onde instalar. Você conversa com o Claude, o ChatGPT ou o Antigravity, e ele trabalha dentro do programa.", ForeColor = Dim, AutoSize = true, Margin = new Padding(0, 0, 0, 12) };
+            title = new Label { Font = new Font("Segoe UI Semibold", 15f), AutoSize = true, Margin = new Padding(0, 0, 0, 4) };
+            subtitle = new Label { ForeColor = Dim, AutoSize = true, Margin = new Padding(0, 0, 0, 12) };
             list = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, BackColor = Panel, Padding = new Padding(14, 10, 14, 10), Margin = new Padding(0, 0, 0, 10) };
             aiRow = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Top, WrapContents = true, Margin = new Padding(0, 0, 0, 6), BackColor = Bg };
             status = new Label { Text = "", ForeColor = Dim, AutoSize = true, Margin = new Padding(0, 0, 0, 10) };
-            installButton = new GradientButton { Text = "Instalar", Dock = DockStyle.Top, Height = 48, Margin = new Padding(0, 0, 0, 8) };
+            installButton = new GradientButton { Dock = DockStyle.Top, Height = 48, Margin = new Padding(0, 0, 0, 8) };
             installButton.Click += delegate { if (done) { Close(); } else { RunInstall(); } };
-            secondButton = new GradientButton { Text = "Fechar", Primary = false, Dock = DockStyle.Top, Height = 40, Font = new Font("Segoe UI", 10.5f), Margin = new Padding(0, 0, 0, 4) };
+            secondButton = new GradientButton { Primary = false, Dock = DockStyle.Top, Height = 40, Font = new Font("Segoe UI", 10.5f), Margin = new Padding(0, 0, 0, 4) };
             secondButton.Click += delegate { Close(); };
-            uninstallLink = new LinkLabel { Text = "Desinstalar", AutoSize = true, Anchor = AnchorStyles.Right, LinkColor = Dim, ActiveLinkColor = Pink, VisitedLinkColor = Dim, LinkBehavior = LinkBehavior.HoverUnderline, Visible = false, Margin = new Padding(0) };
+            uninstallLink = new LinkLabel { AutoSize = true, Anchor = AnchorStyles.Right, LinkColor = Dim, ActiveLinkColor = Pink, VisitedLinkColor = Dim, LinkBehavior = LinkBehavior.HoverUnderline, Visible = false, Margin = new Padding(0) };
             uninstallLink.LinkClicked += delegate { RunUninstall(); };
 
             foreach (Control c in new Control[] { header, title, subtitle, list, aiRow, status, installButton, secondButton, uninstallLink })
@@ -823,7 +909,21 @@ namespace Soma
             Controls.Add(root);
             root.Resize += delegate { FitText(); };
             ResumeLayout(false);
-            Shown += delegate { FitText(); Reload(); CheckGitHub(); };
+            Shown += delegate { ApplyLanguage(); CheckGitHub(); };
+        }
+
+        // Sets every fixed text in the chosen language and rebuilds the program list.
+        void ApplyLanguage()
+        {
+            Text = Lang.T("Instalar Soma Agente", "Install Soma Agente");
+            languageLink.Text = Lang.T("English", "Português");
+            title.Text = Lang.T("Agente de IA para seus programas", "AI agent for your apps");
+            subtitle.Text = Lang.T("Marque onde instalar. Você conversa com o Claude, o ChatGPT ou o Antigravity, e ele trabalha dentro do programa.", "Choose where to install. You chat with Claude, ChatGPT or Antigravity, and it works inside the app.");
+            secondButton.Text = Lang.T("Fechar", "Close");
+            uninstallLink.Text = Lang.T("Desinstalar", "Uninstall");
+            status.Text = "";
+            FitText();
+            Reload();
         }
 
         int ContentWidth { get { return Math.Max(100, root.ClientSize.Width - root.Padding.Horizontal); } }
@@ -845,7 +945,7 @@ namespace Soma
             aiRow.Controls.Add(new Label { Text = name + (found ? " ✓" : " ✗"), ForeColor = found ? Green : Amber, AutoSize = true, Margin = new Padding(0, 2, 6, 2) });
             if (!found)
             {
-                var link = new LinkLabel { Text = "baixar", AutoSize = true, LinkColor = Pink, ActiveLinkColor = Amber, LinkBehavior = LinkBehavior.HoverUnderline, Margin = new Padding(0, 2, 16, 2) };
+                var link = new LinkLabel { Text = Lang.T("baixar", "download"), AutoSize = true, LinkColor = Pink, ActiveLinkColor = Amber, LinkBehavior = LinkBehavior.HoverUnderline, Margin = new Padding(0, 2, 16, 2) };
                 link.LinkClicked += delegate { Open(url); };
                 aiRow.Controls.Add(link);
             }
@@ -868,7 +968,7 @@ namespace Soma
                 // dark gray) but cannot be ticked.
                 var box = new CheckBox
                 {
-                    Text = app.Found ? app.Detail + (app.Installed ? "  ·  instalado" : "") : app.Detail,
+                    Text = app.Found ? app.Detail + (app.Installed ? Lang.T("  ·  instalado", "  ·  installed") : "") : app.Detail,
                     Checked = app.Found,
                     AutoCheck = app.Found,
                     Cursor = app.Found ? Cursors.Hand : Cursors.Default,
@@ -883,16 +983,16 @@ namespace Soma
             }
             list.ResumeLayout();
             bool claude = Detect.Claude(), codex = Detect.Codex();
-            bool agy = File.Exists(Path.Combine(Paths.RealLocal, @"agy\bin\agy.exe"));
+            bool agy = Detect.Agy();
             aiRow.Controls.Clear();
-            aiRow.Controls.Add(new Label { Text = "IA:", ForeColor = Dim, AutoSize = true, Margin = new Padding(0, 2, 8, 2) });
+            aiRow.Controls.Add(new Label { Text = Lang.T("IA:", "AI:"), ForeColor = Dim, AutoSize = true, Margin = new Padding(0, 2, 8, 2) });
             AddAi("Claude", claude, "https://claude.ai/download");
             AddAi("ChatGPT", codex, "https://chatgpt.com/codex");
             AddAi("Antigravity", agy, "https://antigravity.google/docs/getting-started");
-            if (!claude && !codex && !agy) { status.ForeColor = Amber; status.Text = "Instale pelo menos uma IA (Claude, Codex do ChatGPT ou Antigravity) para o agente funcionar."; }
+            if (!claude && !codex && !agy) { status.ForeColor = Amber; status.Text = Lang.T("Instale pelo menos uma IA (Claude, Codex do ChatGPT ou Antigravity) para o agente funcionar.", "Install at least one AI (Claude, ChatGPT Codex or Antigravity) for the agent to work."); }
             FitText();
             uninstallLink.Visible = apps.Any(a => a.Installed);
-            if (!done) { installButton.Text = apps.Any(a => a.Installed) ? "Instalar / atualizar para " + Paths.Version : "Instalar"; }
+            if (!done) { installButton.Text = apps.Any(a => a.Installed) ? Lang.T("Instalar / atualizar para ", "Install / update to ") + Paths.Version : Lang.T("Instalar", "Install"); }
         }
 
         List<App> Selected()
@@ -903,12 +1003,12 @@ namespace Soma
         void RunInstall()
         {
             List<App> chosen = Selected();
-            if (!chosen.Any()) { status.ForeColor = Amber; status.Text = "Marque pelo menos um programa."; return; }
+            if (!chosen.Any()) { status.ForeColor = Amber; status.Text = Lang.T("Marque pelo menos um programa.", "Select at least one app."); return; }
             var open = chosen.Where(a => a.Adobe && Detect.Running(a)).Select(a => a.Label).ToList();
             if (open.Any())
             {
                 status.ForeColor = Amber;
-                status.Text = "Feche " + string.Join(", ", open) + " (salve antes) e clique em Instalar de novo.";
+                status.Text = Lang.T("Feche ", "Close ") + string.Join(", ", open) + Lang.T(" (salve antes) e clique em Instalar de novo.", " (save first) and click Install again.");
                 return;
             }
             installButton.Enabled = false;
@@ -935,60 +1035,60 @@ namespace Soma
             {
                 Reload();
                 status.ForeColor = Red;
-                status.Text = "Não deu para instalar: " + failure.Message;
-                installButton.Text = "Tentar de novo";
+                status.Text = Lang.T("Não deu para instalar: ", "Could not install: ") + failure.Message;
+                installButton.Text = Lang.T("Tentar de novo", "Try again");
                 return;
             }
             done = true;
-            title.Text = "Pronto! Soma Agente instalado.";
-            subtitle.Text = "Reabra os programas. Na primeira vez, escolha Claude ou ChatGPT e conecte sua conta.";
+            title.Text = Lang.T("Pronto! Soma Agente instalado.", "Done! Soma Agente is installed.");
+            subtitle.Text = Lang.T("Reabra os programas. Na primeira vez, escolha a IA e conecte sua conta.", "Reopen the apps. The first time, pick the AI and connect your account.");
             var lines = new List<string>();
             foreach (App app in chosen)
             {
                 if (app.Adobe) { lines.Add(app.Label + ": Window > Extensions > Soma Agente"); }
-                else if (app.Id == "blender") { lines.Add("Blender: 3D View > barra lateral (tecla N) > aba Soma"); }
-                else if (app.Id == "cinema4d") { lines.Add("Cinema 4D: menu Extensions > Soma Agente"); }
-                else if (app.Id == "figma") { lines.Add("Figma: Plugins > Development > Import plugin from manifest… (caminho copiado)"); }
-                else if (app.Id == "antigravity") { lines.Add("Antigravity: o servidor \"soma\" já está nas MCP Servers. Com os programas abertos, peça por exemplo \"use o soma para listar os apps\"."); }
+                else if (app.Id == "blender") { lines.Add(Lang.T("Blender: 3D View > barra lateral (tecla N) > aba Soma", "Blender: 3D View > sidebar (N key) > Soma tab")); }
+                else if (app.Id == "cinema4d") { lines.Add(Lang.T("Cinema 4D: menu Extensions > Soma Agente", "Cinema 4D: Extensions menu > Soma Agente")); }
+                else if (app.Id == "figma") { lines.Add(Lang.T("Figma: Plugins > Development > Import plugin from manifest… (caminho copiado)", "Figma: Plugins > Development > Import plugin from manifest… (path copied)")); }
+                else if (app.Id == "antigravity") { lines.Add(Lang.T("Antigravity: o servidor \"soma\" já está nas MCP Servers. Com os programas abertos, peça por exemplo \"use o soma para listar os apps\".", "Antigravity: the \"soma\" server is already in MCP Servers. With the apps open, ask for example \"use soma to list the apps\".")); }
             }
             list.Controls.Clear();
             foreach (string line in lines) { list.Controls.Add(TextLine(line, Color.White, 10.5f)); }
             if (chosen.Any(a => a.Id == "figma"))
             {
                 try { Clipboard.SetText(Paths.FigmaManifest); } catch { }
-                var copy = new GradientButton { Text = "Copiar caminho do manifest do Figma", Primary = false, Size = new Size(Math.Max(120, list.ClientSize.Width - list.Padding.Horizontal - 4), 36), Font = new Font("Segoe UI", 10f), Margin = new Padding(0, 8, 0, 4) };
-                copy.Click += delegate { try { Clipboard.SetText(Paths.FigmaManifest); status.Text = "Copiado: " + Paths.FigmaManifest; } catch { } };
+                var copy = new GradientButton { Text = Lang.T("Copiar caminho do manifest do Figma", "Copy the Figma manifest path"), Primary = false, Size = new Size(Math.Max(120, list.ClientSize.Width - list.Padding.Horizontal - 4), 36), Font = new Font("Segoe UI", 10f), Margin = new Padding(0, 8, 0, 4) };
+                copy.Click += delegate { try { Clipboard.SetText(Paths.FigmaManifest); status.Text = Lang.T("Copiado: ", "Copied: ") + Paths.FigmaManifest; } catch { } };
                 list.Controls.Add(copy);
-                var folder = new LinkLabel { Text = "Abrir a pasta do plugin do Figma", AutoSize = true, LinkColor = Pink, ActiveLinkColor = Amber, Margin = new Padding(0, 4, 0, 4) };
+                var folder = new LinkLabel { Text = Lang.T("Abrir a pasta do plugin do Figma", "Open the Figma plugin folder"), AutoSize = true, LinkColor = Pink, ActiveLinkColor = Amber, Margin = new Padding(0, 4, 0, 4) };
                 folder.LinkClicked += delegate { Open(Path.GetDirectoryName(Paths.FigmaManifest)); };
                 list.Controls.Add(folder);
             }
             FitText();
             status.ForeColor = Green;
-            status.Text = "Versões anteriores foram guardadas em pastas de backup.";
-            installButton.Text = "Concluir";
-            secondButton.Text = "Fechar";
+            status.Text = Lang.T("Versões anteriores foram guardadas em pastas de backup.", "Previous versions were kept in backup folders.");
+            installButton.Text = Lang.T("Concluir", "Finish");
+            secondButton.Text = Lang.T("Fechar", "Close");
             uninstallLink.Visible = true;
         }
 
         void RunUninstall()
         {
-            if (MessageBox.Show(this, "Remover o Soma Agente de todos os programas?\n\nOs arquivos vão para pastas de backup (nada é apagado) e suas configurações ficam guardadas.", "Desinstalar Soma Agente", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) { return; }
+            if (MessageBox.Show(this, Lang.T("Remover o Soma Agente de todos os programas?\n\nOs arquivos vão para pastas de backup (nada é apagado) e suas configurações ficam guardadas.", "Remove Soma Agente from every app?\n\nThe files go to backup folders (nothing is deleted) and your settings are kept."), Lang.T("Desinstalar Soma Agente", "Uninstall Soma Agente"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) { return; }
             var open = Detect.All().Where(a => a.Adobe && a.Installed && Detect.Running(a)).Select(a => a.Label).ToList();
-            if (open.Any()) { status.ForeColor = Amber; status.Text = "Feche " + string.Join(", ", open) + " antes de desinstalar."; return; }
+            if (open.Any()) { status.ForeColor = Amber; status.Text = Lang.T("Feche ", "Close ") + string.Join(", ", open) + Lang.T(" antes de desinstalar.", " before uninstalling."); return; }
             try
             {
                 Installer.Uninstall(Detect.All());
                 done = false;
-                title.Text = "Soma Agente removido.";
+                title.Text = Lang.T("Soma Agente removido.", "Soma Agente removed.");
                 status.ForeColor = Muted;
-                status.Text = "Você pode instalar de novo quando quiser.";
+                status.Text = Lang.T("Você pode instalar de novo quando quiser.", "You can install it again any time.");
                 Reload();
             }
             catch (Exception ex)
             {
                 status.ForeColor = Red;
-                status.Text = "Não deu para desinstalar: " + ex.Message;
+                status.Text = Lang.T("Não deu para desinstalar: ", "Could not uninstall: ") + ex.Message;
             }
         }
 
@@ -1007,8 +1107,8 @@ namespace Soma
                     BeginInvoke((Action)delegate
                     {
                         status.ForeColor = Amber;
-                        status.Text = "A versão " + latest.Version + " já está no GitHub.";
-                        if (MessageBox.Show(this, "Existe uma versão mais nova do Soma Agente (" + latest.Version + ").\n\nAbrir a página de download no GitHub?", "Soma Agente", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+                        status.Text = Lang.T("A versão ", "Version ") + latest.Version + Lang.T(" já está no GitHub.", " is on GitHub.");
+                        if (MessageBox.Show(this, Lang.T("Existe uma versão mais nova do Soma Agente (", "A newer Soma Agente is available (") + latest.Version + Lang.T(").\n\nAbrir a página de download no GitHub?", ").\n\nOpen the download page on GitHub?"), "Soma Agente", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
                         {
                             Open(latest.PageUrl);
                             Close();

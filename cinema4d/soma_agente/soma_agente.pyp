@@ -28,10 +28,13 @@ def log(text):
 
 try:
     from soma_core import Agent, extensions  # noqa: E402
+    from soma_core import i18n  # noqa: E402
+    from soma_core.i18n import L  # noqa: E402
     from soma_c4d_host import C4DHost  # noqa: E402
     LOAD_ERROR = None
 except Exception:  # noqa: BLE001 - shown in the dialog instead of a silent missing plugin
     LOAD_ERROR = traceback.format_exc()
+    L = lambda en, pt: en  # noqa: E731
     log("Could not load: " + LOAD_ERROR)
 
 # Outside Maxon's shared test range (1000001-1000010), which other plugins
@@ -40,6 +43,8 @@ PLUGIN_ID = 1990421
 
 ID_PROVIDER, ID_MODEL, ID_EFFORT, ID_STATUS, ID_CONNECT, ID_CHECK = 1001, 1002, 1003, 1004, 1005, 1006
 ID_LOG, ID_PROMPT, ID_SEND, ID_STOP, ID_ATTACH, ID_CLEAR, ID_NEW, ID_ATTACHED = 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017
+ID_LANGUAGE = 1018
+LANGUAGES = ["auto", "pt", "en"]
 PROVIDERS = ["claude", "chatgpt", "antigravity"]
 
 _agent = None
@@ -78,7 +83,7 @@ class SomaDialog(gui.GeDialog):
         self.GroupEnd()
 
         self.GroupBegin(0, c4d.BFH_SCALEFIT, cols=3)
-        self.AddStaticText(ID_STATUS, c4d.BFH_SCALEFIT, name="Starting…")
+        self.AddStaticText(ID_STATUS, c4d.BFH_SCALEFIT, name=L("Starting…", "Iniciando…"))
         self.AddButton(ID_CONNECT, c4d.BFH_RIGHT, name="Connect")
         self.AddButton(ID_CHECK, c4d.BFH_RIGHT, name="Check")
         self.GroupEnd()
@@ -88,20 +93,35 @@ class SomaDialog(gui.GeDialog):
         self.AddStaticText(ID_ATTACHED, c4d.BFH_SCALEFIT, name="")
         self.AddMultiLineEditText(ID_PROMPT, c4d.BFH_SCALEFIT, initw=360, inith=70, style=c4d.DR_MULTILINE_WORDWRAP)
 
-        self.GroupBegin(0, c4d.BFH_SCALEFIT, cols=5)
+        self.GroupBegin(0, c4d.BFH_SCALEFIT, cols=6)
         self.AddButton(ID_SEND, c4d.BFH_SCALEFIT, name="Send")
         self.AddButton(ID_STOP, c4d.BFH_LEFT, name="Stop")
         self.AddButton(ID_ATTACH, c4d.BFH_LEFT, name="Attach image")
         self.AddButton(ID_CLEAR, c4d.BFH_LEFT, name="Clear")
         self.AddButton(ID_NEW, c4d.BFH_LEFT, name="New chat")
+        self.AddComboBox(ID_LANGUAGE, c4d.BFH_RIGHT)
+        self.AddChild(ID_LANGUAGE, 0, "Auto")
+        self.AddChild(ID_LANGUAGE, 1, "Português")
+        self.AddChild(ID_LANGUAGE, 2, "English")
         self.GroupEnd()
         self.GroupEnd()
         return True
 
     def InitValues(self):
         self.SetTimer(150)
+        self.apply_texts()
         self.safely(lambda: self.refresh(force=True))
         return True
+
+    def apply_texts(self):
+        """Button captions in the current language (also after switching it)."""
+        for cid, en, pt in ((ID_CONNECT, "Connect", "Conectar"), (ID_CHECK, "Check", "Verificar"), (ID_SEND, "Send", "Enviar"),
+                            (ID_STOP, "Stop", "Parar"), (ID_ATTACH, "Attach image", "Anexar imagem"), (ID_CLEAR, "Clear", "Limpar"),
+                            (ID_NEW, "New chat", "Nova conversa")):
+            self.SetString(cid, L(en, pt))
+        if not LOAD_ERROR:
+            self.SetInt32(ID_LANGUAGE, LANGUAGES.index(i18n.choice()))
+        self.LayoutChanged(0)
 
     def ask_pending(self):
         """Connectors the agent added (and downloaded skills) need the user's OK."""
@@ -112,7 +132,8 @@ class SomaDialog(gui.GeDialog):
             if key in asked:
                 continue
             asked.add(key)
-            question = ("Soma Agente: the agent wants to add a %s.\n\n%s\n%s\n\nConnectors run programs on this computer. Approve?"
+            question = (L("Soma Agente: the agent wants to add a %s.\n\n%s\n%s\n\nConnectors run programs on this computer. Approve?",
+                          "Soma Agente: o agente quer adicionar: %s.\n\n%s\n%s\n\nConectores rodam programas neste computador. Aprovar?")
                         % (item["kind"], item["name"], item["detail"] or item["description"]))
             extensions.approve(item["kind"], item["name"], gui.QuestionDialog(question))
 
@@ -125,8 +146,8 @@ class SomaDialog(gui.GeDialog):
             if detail != getattr(self, "last_error", None):
                 self.last_error = detail
                 log(detail)
-                self.SetString(ID_STATUS, "Error — see the message below")
-                self.SetString(ID_LOG, "Soma Agente hit an error (also saved to AE Agent/soma-c4d.log):\n\n" + detail)
+                self.SetString(ID_STATUS, L("Error — see the message below", "Erro — veja a mensagem abaixo"))
+                self.SetString(ID_LOG, L("Soma Agente hit an error (also saved to AE Agent/soma-c4d.log):", "O Soma Agente encontrou um erro (salvo também em AE Agent/soma-c4d.log):") + "\n\n" + detail)
 
     # -------------------------------------------------------------- render
     def refresh(self, force=False):
@@ -166,20 +187,20 @@ class SomaDialog(gui.GeDialog):
                 mark = {"running": "…", "done": "✓", "failed": "✗"}.get(m.get("state"), "•")
                 lines.append("   %s %s" % (mark, m["text"]))
             elif role == "user":
-                lines.append("\nYou: " + m["text"])
+                lines.append("\n" + L("You: ", "Você: ") + m["text"])
             elif role == "assistant":
                 lines.append("\nSoma: " + m["text"])
             else:
                 lines.append("\n[" + role + "] " + m["text"])
         if not lines:
-            lines = ["Describe what you want in the scene. Soma inspects the document, makes the change, and checks the result with a quick render."]
+            lines = [L("Describe what you want in the scene. Soma inspects the document, makes the change, and checks the result with a quick render.", "Descreva o que você quer na cena. O Soma inspeciona o documento, faz a mudança e confere o resultado com um render rápido.")]
         self.SetString(ID_LOG, "\n".join(lines).strip())
         try:
             self.SetMultiLinePos(ID_LOG, 10 ** 6, 0)
         except Exception:  # noqa: BLE001 - older versions
             pass
         names = ", ".join(os.path.basename(p) for p in self.attachments)
-        self.SetString(ID_ATTACHED, ("Attached: " + names) if names else "")
+        self.SetString(ID_ATTACHED, (L("Attached: ", "Anexado: ") + names) if names else "")
 
     def Timer(self, msg):
         def tick():
@@ -216,13 +237,16 @@ class SomaDialog(gui.GeDialog):
         elif cid == ID_STOP:
             a.stop()
         elif cid == ID_ATTACH:
-            path = c4d.storage.LoadDialog(type=c4d.FILESELECTTYPE_IMAGES, title="Attach a reference image")
+            path = c4d.storage.LoadDialog(type=c4d.FILESELECTTYPE_IMAGES, title=L("Attach a reference image", "Anexar uma imagem de referência"))
             if path:
                 self.attachments.append(path)
         elif cid == ID_CLEAR:
             self.attachments = []
         elif cid == ID_NEW:
             a.new_chat()
+        elif cid == ID_LANGUAGE:
+            i18n.set_choice(LANGUAGES[self.GetInt32(ID_LANGUAGE)])
+            self.apply_texts()
         self.refresh(force=True)
 
 
@@ -253,7 +277,7 @@ if __name__ == "__main__":
         if not os.path.isfile(icon_path) or icon.InitWith(icon_path)[0] != c4d.IMAGERESULT_OK:
             icon = None
         if c4d.plugins.RegisterCommandPlugin(id=PLUGIN_ID, str="Soma Agente", info=0, icon=icon,
-                                             help="Chat with Claude, ChatGPT or Antigravity to edit the scene", dat=SomaCommand()):
+                                             help=L("Chat with Claude, ChatGPT or Antigravity to edit the scene", "Converse com o Claude, o ChatGPT ou o Antigravity para editar a cena"), dat=SomaCommand()):
             log("Registered (Extensions > Soma Agente).")
         else:
             log("Cinema 4D refused to register the command (plugin id %d already in use?)." % PLUGIN_ID)

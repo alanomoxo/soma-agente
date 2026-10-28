@@ -88,6 +88,8 @@
     openMediaFolder: document.getElementById("openMediaFolder")
   };
 
+  var L = window.SomaI18n.L;
+  window.SomaI18n.start();
   applyHostProfile();
   var welcomeMarkup = elements.conversation.innerHTML;
   var attachments = [];
@@ -527,7 +529,7 @@
       return Promise.resolve(reply({
         protocolVersion: params.protocolVersion || "2025-06-18",
         capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: MCP_SERVER_NAME, title: "Soma Agente", version: "1.6.1" }
+        serverInfo: { name: MCP_SERVER_NAME, title: "Soma Agente", version: "1.6.2" }
       }));
     }
     if (message.method === "ping") {
@@ -1826,11 +1828,11 @@
     activeAssistantMessages = {};
     activeToolEvents = {};
     if (stopped) {
-      addMessage("assistant", "Request stopped. Changes already applied remain in the project; you can use Revert last run to undo them.");
+      addMessage("assistant", L("Request stopped. Changes already applied remain in the project; you can use Revert last run to undo them.", "Pedido interrompido. O que já foi aplicado continua no projeto; use Desfazer a última execução para voltar."));
       setProgress("Request stopped", "No further agent actions will run.", "complete");
     } else if (turn && turn.status === "failed") {
-      var message = turn.error && turn.error.message ? turn.error.message : "The agent turn failed.";
-      addMessage("assistant", "I couldn’t complete that: " + message);
+      var message = turn.error && turn.error.message ? turn.error.message : L("The agent turn failed.", "A execução do agente falhou.");
+      addMessage("assistant", L("I couldn’t complete that: ", "Não consegui concluir: ") + message);
       setProgress("The run stopped", message, "failed");
     } else {
       setProgress("Run complete", "See the result above for completed work and any verification limits.", "complete");
@@ -1916,7 +1918,7 @@
       // Keep pasted files until the chat ends so the agent can still import them.
       if (item.temp) { chatTempFiles.push(item.path); }
     });
-    addUserMessage(text || "Attached reference", sentAttachments);
+    addUserMessage(text || L("Attached reference", "Referência anexada"), sentAttachments);
 
     attachments = [];
     renderAttachments();
@@ -1989,7 +1991,7 @@
         updateRunControls();
         client.threadId = null;
         elements.undoButton.disabled = true;
-        addMessage("assistant", "Reverted the last Soma Agente run (" + total + " undo step" + (total === 1 ? "" : "s") + ").");
+        addMessage("assistant", L("Reverted the last Soma Agente run (" + total + " undo step" + (total === 1 ? "" : "s") + ").", "Última execução do Soma Agente desfeita (" + total + " passo(s) de desfazer)."));
         setProgress("Last run reverted", "The composition is back to the state before that agent run.", "complete");
         return;
       }
@@ -2816,7 +2818,7 @@
   }
 
   function askAgentForEase() {
-    var text = "Aplique o ease " + easeState.name + " — " + window.AEEases.format(easeState.bezier) + " — nos keyframes selecionados.";
+    var text = L("Apply the ease ", "Aplique o ease ") + easeState.name + " — " + window.AEEases.format(easeState.bezier) + L(" — to the selected keyframes.", " — nos keyframes selecionados.");
     var current = elements.promptInput.value.replace(/\s+$/, "");
     elements.promptInput.value = current ? current + " " + text : text;
     closePopovers();
@@ -3154,6 +3156,12 @@
     swatch.addEventListener("click", function () {
       applyAccent(swatch.getAttribute("data-color"));
     });
+  });
+  var uiLanguage = document.getElementById("uiLanguage");
+  uiLanguage.value = window.SomaI18n.choice;
+  uiLanguage.addEventListener("change", function () {
+    window.SomaI18n.setChoice(uiLanguage.value);
+    window.location.reload();
   });
   elements.accentInput.addEventListener("change", function () { if (!applyAccent(elements.accentInput.value)) { showBanner("Enter a color as six hex digits, for example #ef4444."); } });
   elements.accentInput.addEventListener("keydown", function (event) { if (event.key === "Enter") { event.preventDefault(); elements.accentInput.blur(); } });
