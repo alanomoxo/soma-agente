@@ -1,6 +1,6 @@
-SOMA AGENTE 1.6.3 — COMO INSTALAR
+SOMA AGENTE 1.7.0 — COMO INSTALAR
 Agente de IA (Claude, ChatGPT ou Antigravity) para After Effects, Photoshop, Illustrator,
-Premiere Pro, Blender, Cinema 4D e Figma.
+Premiere Pro, Blender, Cinema 4D, Figma e Cavalry.
 
 ANTES
 - Tenha pelo menos uma IA instalada e com login feito: o app Claude
@@ -26,6 +26,7 @@ ONDE ABRIR DEPOIS DE INSTALAR
 - Blender: no 3D Viewport aperte N e abra a aba "Soma".
   (O add-on liga sozinho na primeira vez que o Blender abre.)
 - Cinema 4D: menu Extensions > Soma Agente (dá para encaixar o painel).
+- Cavalry: menu Scripts > Soma Agente (o Soma Hub precisa estar rodando).
 - Figma (uma vez só): no app desktop do Figma, menu
   Plugins > Development > Import plugin from manifest… e escolha o arquivo
   que o instalador copiou para a área de transferência:

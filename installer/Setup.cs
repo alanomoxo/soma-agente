@@ -29,15 +29,15 @@ using Microsoft.Win32;
 [assembly: AssemblyDescription("Instalador do Soma Agente, agente de IA de código aberto para programas criativos (github.com/alanomoxo/soma-agente)")]
 [assembly: AssemblyCompany("alanomoxo")]
 [assembly: AssemblyCopyright("Copyright (c) 2026 alanomoxo and the Soma Agente contributors. MIT License.")]
-[assembly: AssemblyVersion("1.6.3.0")]
-[assembly: AssemblyFileVersion("1.6.3.0")]
+[assembly: AssemblyVersion("1.7.0.0")]
+[assembly: AssemblyFileVersion("1.7.0.0")]
 
 namespace Soma
 {
     static class Paths
     {
         public const string BundleId = "com.framepilot.aeagent";
-        public const string Version = "1.6.3";
+        public const string Version = "1.7.0";
         // SOMA_TEST_ROOT redirects every write (files and registry) for testing.
         public static readonly string TestRoot = Environment.GetEnvironmentVariable("SOMA_TEST_ROOT");
         public static string Roaming { get { return TestRoot != null ? Path.Combine(TestRoot, "Roaming") : Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); } }
@@ -51,6 +51,7 @@ namespace Soma
         public static string Backups { get { return Path.Combine(Data, "backups"); } }
         public static string FigmaHome { get { return Path.Combine(Local, @"Soma Agente\figma"); } }
         public static string FigmaManifest { get { return Path.Combine(FigmaHome, @"plugin\manifest.json"); } }
+        public static string CavalryScript { get { return Path.Combine(Roaming, @"Cavalry\Scripts\Soma Agente.js"); } }
         public static string RegistryRoot { get { return TestRoot == null ? @"Software" : @"Software\SomaAgenteTest"; } }
         public static string CsxsKey(int version) { return RegistryRoot + @"\Adobe\CSXS." + version; }
         public static string RunKey { get { return RegistryRoot + @"\Microsoft\Windows\CurrentVersion\Run"; } }
@@ -183,6 +184,13 @@ namespace Soma
             figma.Detail = figma.Found ? Lang.T("Figma (app desktop)", "Figma (desktop app)") : Lang.T("Figma desktop não encontrado", "Figma desktop not found");
             figma.Installed = Directory.Exists(Paths.FigmaHome);
             apps.Add(figma);
+
+            // Cavalry: a script panel in its Scripts folder; the Soma Hub runs its agent.
+            var cavalry = new App { Id = "cavalry", Label = "Cavalry", ProcessName = "Cavalry" };
+            cavalry.Found = File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"Cavalry\Cavalry.exe")) || Directory.Exists(Path.Combine(Paths.RealRoaming, "Cavalry"));
+            cavalry.Detail = cavalry.Found ? "Cavalry" : Lang.T("Cavalry não encontrado", "Cavalry not found");
+            cavalry.Installed = File.Exists(Paths.CavalryScript);
+            apps.Add(cavalry);
 
             var antigravity = new App { Id = "antigravity", Label = "Antigravity" };
             antigravity.Found = Antigravity.Found();
@@ -445,6 +453,13 @@ namespace Soma
                     Replace("c4d.zip", Path.Combine(target, @"plugins\soma_agente"), Path.Combine(Paths.Backups, "cinema4d"), "soma_agente-" + Path.GetFileName(target), null);
                 }
             }
+            if (apps.Any(a => a.Id == "cavalry"))
+            {
+                step(Lang.T("Instalando no Cavalry…", "Installing in Cavalry…"));
+                Directory.CreateDirectory(Path.GetDirectoryName(Paths.CavalryScript));
+                using (Stream s = Resource("cavalry.js"))
+                using (var file = File.Create(Paths.CavalryScript)) { s.CopyTo(file); }
+            }
             // The Soma Hub (also the Figma helper) is always installed: it lets
             // Antigravity drive every open program. It starts at login.
             step(Lang.T("Instalando o Soma Hub…", "Installing the Soma Hub…"));
@@ -620,6 +635,12 @@ namespace Soma
             foreach (App app in apps.Where(a => a.Id == "cinema4d"))
             {
                 foreach (string target in app.Targets) { Shelve(Path.Combine(target, @"plugins\soma_agente"), Path.Combine(Paths.Backups, "cinema4d"), "soma_agente-removed-" + Path.GetFileName(target)); }
+            }
+            if (File.Exists(Paths.CavalryScript))
+            {
+                string backup = Path.Combine(Paths.Backups, "cavalry");
+                Directory.CreateDirectory(backup);
+                File.Move(Paths.CavalryScript, Path.Combine(backup, "Soma Agente-removed-" + Paths.Stamp() + ".js"));
             }
             StopHub();
             if (Directory.Exists(Paths.FigmaHome))
@@ -1056,6 +1077,7 @@ namespace Soma
                 else if (app.Id == "blender") { lines.Add(Lang.T("Blender: 3D View > barra lateral (tecla N) > aba Soma", "Blender: 3D View > sidebar (N key) > Soma tab")); }
                 else if (app.Id == "cinema4d") { lines.Add(Lang.T("Cinema 4D: menu Extensions > Soma Agente", "Cinema 4D: Extensions menu > Soma Agente")); }
                 else if (app.Id == "figma") { lines.Add(Lang.T("Figma: Plugins > Development > Import plugin from manifest… (caminho copiado)", "Figma: Plugins > Development > Import plugin from manifest… (path copied)")); }
+                else if (app.Id == "cavalry") { lines.Add(Lang.T("Cavalry: menu Scripts > Soma Agente", "Cavalry: Scripts menu > Soma Agente")); }
                 else if (app.Id == "antigravity") { lines.Add(Lang.T("Antigravity: o servidor \"soma\" já está nas MCP Servers. Com os programas abertos, peça por exemplo \"use o soma para listar os apps\".", "Antigravity: the \"soma\" server is already in MCP Servers. With the apps open, ask for example \"use soma to list the apps\".")); }
             }
             list.Controls.Clear();

@@ -74,7 +74,7 @@ $fx = Join-Path $env:WINDIR "Microsoft.NET\Framework64\v4.0.30319"
 $exe = Join-Path $out "Soma-Agente-Instalador.exe"
 & (Join-Path $fx "csc.exe") /nologo /target:winexe /optimize+ /codepage:65001 "/out:$exe" "/win32icon:$(Join-Path $work 'soma.ico')" "/win32manifest:$(Join-Path $root 'installer\app.manifest')" `
     "/resource:$(Join-Path $work 'cep.zip'),cep.zip" "/resource:$(Join-Path $work 'blender.zip'),blender.zip" "/resource:$(Join-Path $work 'c4d.zip'),c4d.zip" `
-    "/resource:$(Join-Path $work 'figma.zip'),figma.zip" `
+    "/resource:$(Join-Path $work 'figma.zip'),figma.zip" "/resource:$(Join-Path $root 'cavalry\Soma Agente.js'),cavalry.js" `
     "/resource:$(Join-Path $art 'wordmark.png'),wordmark.png" "/resource:$(Join-Path $art 'mark.png'),mark.png" `
     /reference:System.Windows.Forms.dll /reference:System.Drawing.dll "/reference:$fx\System.IO.Compression.dll" "/reference:$fx\System.IO.Compression.FileSystem.dll" "/reference:$fx\System.Web.Extensions.dll" `
     (Join-Path $root "installer\Setup.cs")
@@ -107,6 +107,8 @@ New-Item -ItemType Directory (Join-Path $mac "Blender"), (Join-Path $mac "Cinema
 Copy-Item (Join-Path $root "adobe") (Join-Path $mac "Soma Agente") -Recurse
 Copy-Item (Join-Path $stage "blender") (Join-Path $mac "Blender\soma_agente") -Recurse
 Copy-Item (Join-Path $stage "c4d") (Join-Path $mac "Cinema 4D\soma_agente") -Recurse
+New-Item -ItemType Directory (Join-Path $mac "Cavalry") | Out-Null
+Copy-Item (Join-Path $root "cavalry\Soma Agente.js") (Join-Path $mac "Cavalry")
 Copy-Item $figma (Join-Path $mac "Figma") -Recurse
 $macZip = Join-Path $out "Soma-Agente-Mac.zip"
 New-Zip $macZip $mac ""

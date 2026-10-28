@@ -1,10 +1,10 @@
 # Soma Agente
 
-**Agente de IA de código aberto para quem cria.** Converse em português (ou em qualquer idioma) e o Soma trabalha direto dentro do seu programa: After Effects, Photoshop, Illustrator, Premiere Pro, Blender, Cinema 4D e Figma.
+**Agente de IA de código aberto para quem cria.** Converse em português (ou em qualquer idioma) e o Soma trabalha direto dentro do seu programa: After Effects, Photoshop, Illustrator, Premiere Pro, Blender, Cinema 4D, Figma e Cavalry.
 
 O projeto é livre e feito para ajudar a comunidade de motion design, 3D e design: use, estude, adapte e contribua.
 
-> **English:** Soma Agente is an open-source AI agent for creative apps (After Effects, Photoshop, Illustrator, Premiere Pro, Blender, Cinema 4D, Figma). You chat with Claude, ChatGPT or Antigravity using your own account, and it inspects the open document, makes the change and checks the result. MIT licensed, community-driven.
+> **English:** Soma Agente is an open-source AI agent for creative apps (After Effects, Photoshop, Illustrator, Premiere Pro, Blender, Cinema 4D, Figma, Cavalry). You chat with Claude, ChatGPT or Antigravity using your own account, and it inspects the open document, makes the change and checks the result. MIT licensed, community-driven.
 
 ## O que ele faz
 
@@ -57,6 +57,7 @@ Onde abrir depois:
 | Blender (4.2+) | 3D View > barra lateral (N) > aba **Soma** |
 | Cinema 4D (2024+) | Extensions > Soma Agente |
 | Figma (app desktop) | Plugins > Development > Import plugin from manifest (uma vez) |
+| Cavalry | menu **Scripts > Soma Agente** |
 | Antigravity | servidor MCP **soma**, configurado pelo instalador |
 
 Passo a passo completo: [`installer/COMO-INSTALAR.txt`](installer/COMO-INSTALAR.txt).

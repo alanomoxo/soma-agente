@@ -1,7 +1,7 @@
 # Changelog
 
-## Em desenvolvimento
-- Cavalry: painel de chat (Scripts > Soma Agente) ligado ao Soma Hub, com ferramentas para ler a cena, criar e animar camadas, conectar atributos, importar arquivos e conferir com um quadro de prévia. Ainda não entra pelo instalador.
+## 1.7.0
+- Cavalry: painel de chat (Scripts > Soma Agente) ligado ao Soma Hub, com ferramentas para ler a cena, criar e animar camadas, conectar atributos, importar arquivos e conferir com um quadro de prévia. Escolha Cavalry no instalador.
 - Trocar de IA mantém a conversa: a nova IA recebe o histórico junto com a próxima mensagem.
 - Botão "+ Nova conversa" visível em todos os painéis.
 
