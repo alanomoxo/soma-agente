@@ -88,6 +88,23 @@ $exe = Join-Path $out "Soma-Agente-Instalador.exe"
     (Join-Path $root "installer\Setup.cs")
 if ($LASTEXITCODE -ne 0) { throw "csc failed" }
 
+# Code signing (optional, before hashing). Unsigned builds still work, but
+# SmartScreen and antivirus heuristics trust signed files far more.
+#   SOMA_SIGN_THUMBPRINT  certificate in the user store (token / cloud HSM)
+#   SOMA_SIGN_PFX + SOMA_SIGN_PFX_PASSWORD  certificate file
+#   SOMA_SIGNTOOL  signtool.exe path (default: newest Windows SDK)
+if ($env:SOMA_SIGN_THUMBPRINT -or $env:SOMA_SIGN_PFX) {
+    $signtool = $env:SOMA_SIGNTOOL
+    if (-not $signtool) {
+        $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" -ErrorAction SilentlyContinue |
+            Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+    }
+    if (-not $signtool) { throw "signtool.exe not found: install the Windows SDK or set SOMA_SIGNTOOL" }
+    $cert = if ($env:SOMA_SIGN_THUMBPRINT) { @("/sha1", $env:SOMA_SIGN_THUMBPRINT) } else { @("/f", $env:SOMA_SIGN_PFX, "/p", $env:SOMA_SIGN_PFX_PASSWORD) }
+    & $signtool sign @cert /fd SHA256 /tr "http://timestamp.digicert.com" /td SHA256 /d "Soma Agente" /du "https://github.com/alanomoxo/soma-agente" $exe
+    if ($LASTEXITCODE -ne 0) { throw "signtool failed" }
+}
+
 # The Soma Hub only installs an update whose SHA-256 matches this file.
 $hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLower()
 [IO.File]::WriteAllText("$exe.sha256", "$hash  Soma-Agente-Instalador.exe`n")

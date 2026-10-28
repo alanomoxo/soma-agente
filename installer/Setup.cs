@@ -26,6 +26,9 @@ using Microsoft.Win32;
 
 [assembly: AssemblyTitle("Soma Agente - Instalador")]
 [assembly: AssemblyProduct("Soma Agente")]
+[assembly: AssemblyDescription("Instalador do Soma Agente, agente de IA de código aberto para programas criativos (github.com/alanomoxo/soma-agente)")]
+[assembly: AssemblyCompany("alanomoxo")]
+[assembly: AssemblyCopyright("Copyright (c) 2026 alanomoxo and the Soma Agente contributors. MIT License.")]
 [assembly: AssemblyVersion("1.6.0.0")]
 [assembly: AssemblyFileVersion("1.6.0.0")]
 

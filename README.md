@@ -23,6 +23,14 @@ O projeto é livre e feito para ajudar a comunidade de motion design, 3D e desig
 2. Abra, marque os programas e clique em **Instalar**. Não precisa ser administrador.
 3. Se o Windows mostrar "O Windows protegeu o computador", clique em *Mais informações > Executar assim mesmo* (o instalador ainda não tem assinatura digital).
 
+**Aviso de vírus?** Instaladores novos e sem assinatura digital costumam receber alertas genéricos (SmartScreen, aviso de "download incomum" do navegador ou detecções heurísticas como `Wacatac`/`Suschil`). O código é aberto e o executável é compilado só a partir deste repositório. Para conferir que o arquivo é o oficial, compare o SHA-256:
+
+```powershell
+Get-FileHash .\Soma-Agente-Instalador.exe -Algorithm SHA256
+```
+
+O resultado deve ser igual ao do arquivo `Soma-Agente-Instalador.exe.sha256` da mesma Release. Se o seu antivírus bloquear o arquivo, abra uma *issue* informando o nome do antivírus e da detecção para enviarmos como falso positivo.
+
 Onde abrir depois:
 
 | Programa | Onde |
@@ -79,6 +87,18 @@ powershell -ExecutionPolicy Bypass -File tools\release.ps1 -Version 1.5.1 -Notes
 ```
 
 Todo Soma Hub instalado recebe a Release nova automaticamente.
+
+Assinatura digital (opcional): com um certificado de assinatura de código, defina `SOMA_SIGN_THUMBPRINT` (certificado no repositório do Windows, token ou nuvem) ou `SOMA_SIGN_PFX` e `SOMA_SIGN_PFX_PASSWORD` antes de compilar. O `build.ps1` assina o instalador com `signtool` (Windows SDK) e carimbo de tempo antes de gerar o SHA-256.
+
+Com o certificado Certum Open Source (cartão + leitor): conecte o leitor com o cartão, abra o proCertum CardManager e pegue a impressão digital do certificado:
+
+```powershell
+Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert | Select-Object Subject, Thumbprint, NotAfter
+$env:SOMA_SIGN_THUMBPRINT = "<Thumbprint>"
+powershell -ExecutionPolicy Bypass -File tools\build.ps1
+```
+
+O PIN do cartão é pedido na hora de assinar.
 
 ## Contribuir
 
