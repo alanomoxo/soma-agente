@@ -70,6 +70,7 @@
   </div>
   <div class="status" id="status"><span class="dot"></span><span id="statusText">Connecting to Soma…</span><button class="ghost" id="connect" hidden>Connect</button></div>
   <div id="pending"></div>
+  <div id="update"></div>
   <div class="offline" id="offline">Soma Agente is not running on this computer. It starts automatically when you log in to Windows; you can also open “Soma Agente para Figma” from the Start menu. This panel reconnects by itself.</div>
   <div id="log"></div>
   <footer>
@@ -171,6 +172,23 @@
       });
       pending.appendChild(box);
     });
+    var update = el("update"), u = state.update || {};
+    update.innerHTML = "";
+    if (u.available && u.latest) {
+      var note = document.createElement("div");
+      note.className = "ask";
+      note.textContent = u.requested
+        ? (u.status === "waiting" ? u.detail : L("Installing Soma Agente " + u.latest + "…", "Instalando o Soma Agente " + u.latest + "…"))
+        : L("Soma Agente " + u.latest + " is available (you have " + u.current + ").", "O Soma Agente " + u.latest + " está disponível (você tem a " + u.current + ").");
+      if (!u.requested) {
+        var go = document.createElement("button");
+        go.className = "ghost";
+        go.textContent = L("Update now", "Atualizar agora");
+        go.onclick = function () { post("/hub/update/install"); };
+        note.appendChild(go);
+      }
+      update.appendChild(note);
+    }
     var log = el("log");
     var atBottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 30;
     log.innerHTML = "";

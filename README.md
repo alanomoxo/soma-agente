@@ -72,7 +72,9 @@ O instalador coloca o **Soma Hub**, que inicia com o Windows. A cada poucas hora
 2. espera os programas Adobe fecharem (o painel avisa) e roda o instalador em modo `/silent /update`, atualizando só o que já está instalado;
 3. guarda a versão anterior em backup.
 
-Para desligar: crie o arquivo `%APPDATA%\AE Agent\auto-update-off.txt`.
+Cada programa também confere o GitHub ao abrir e mostra **Atualizar agora** quando há versão nova; dá para verificar na hora em *Verificar atualizações* ou perguntando no chat ("tem atualização?").
+
+Para desligar a instalação automática: crie o arquivo `%APPDATA%\AE Agent\auto-update-off.txt`.
 
 ## Skills e conectores
 

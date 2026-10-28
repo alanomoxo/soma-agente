@@ -29,15 +29,15 @@ using Microsoft.Win32;
 [assembly: AssemblyDescription("Instalador do Soma Agente, agente de IA de código aberto para programas criativos (github.com/alanomoxo/soma-agente)")]
 [assembly: AssemblyCompany("alanomoxo")]
 [assembly: AssemblyCopyright("Copyright (c) 2026 alanomoxo and the Soma Agente contributors. MIT License.")]
-[assembly: AssemblyVersion("1.6.2.0")]
-[assembly: AssemblyFileVersion("1.6.2.0")]
+[assembly: AssemblyVersion("1.6.3.0")]
+[assembly: AssemblyFileVersion("1.6.3.0")]
 
 namespace Soma
 {
     static class Paths
     {
         public const string BundleId = "com.framepilot.aeagent";
-        public const string Version = "1.6.2";
+        public const string Version = "1.6.3";
         // SOMA_TEST_ROOT redirects every write (files and registry) for testing.
         public static readonly string TestRoot = Environment.GetEnvironmentVariable("SOMA_TEST_ROOT");
         public static string Roaming { get { return TestRoot != null ? Path.Combine(TestRoot, "Roaming") : Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); } }
@@ -986,10 +986,17 @@ namespace Soma
             bool agy = Detect.Agy();
             aiRow.Controls.Clear();
             aiRow.Controls.Add(new Label { Text = Lang.T("IA:", "AI:"), ForeColor = Dim, AutoSize = true, Margin = new Padding(0, 2, 8, 2) });
-            AddAi("Claude", claude, "https://claude.ai/download");
+            AddAi("Claude Code", claude, "https://code.claude.com/docs/en/setup");
             AddAi("ChatGPT", codex, "https://chatgpt.com/codex");
-            AddAi("Antigravity", agy, "https://antigravity.google/docs/getting-started");
-            if (!claude && !codex && !agy) { status.ForeColor = Amber; status.Text = Lang.T("Instale pelo menos uma IA (Claude, Codex do ChatGPT ou Antigravity) para o agente funcionar.", "Install at least one AI (Claude, ChatGPT Codex or Antigravity) for the agent to work."); }
+            AddAi("Antigravity CLI", agy, "https://antigravity.google/docs/getting-started");
+            if (!claude || !agy)
+            {
+                // The chat apps alone are not enough; the Soma panel installs the CLIs with one click.
+                status.ForeColor = Amber;
+                status.Text = Lang.T("O Soma usa o Claude Code e a CLI do Antigravity, que não vêm com os apps de chat. Depois de instalar o Soma, clique em Instalar dentro do painel (o Claude Code precisa do plano Pro ou Max).",
+                    "Soma uses Claude Code and the Antigravity CLI, which do not come with the chat apps. After installing Soma, click Install inside the panel (Claude Code needs a Pro or Max plan).");
+            }
+            if (!claude && !codex && !agy) { status.ForeColor = Amber; status.Text = Lang.T("Instale pelo menos uma IA (Claude Code, Codex do ChatGPT ou CLI do Antigravity) para o agente funcionar. Dá para instalar depois, pelo botão Instalar no painel do Soma.", "Install at least one AI (Claude Code, ChatGPT Codex or the Antigravity CLI) for the agent to work. You can also install it later with the Install button in the Soma panel."); }
             FitText();
             uninstallLink.Visible = apps.Any(a => a.Installed);
             if (!done) { installButton.Text = apps.Any(a => a.Installed) ? Lang.T("Instalar / atualizar para ", "Install / update to ") + Paths.Version : Lang.T("Instalar", "Install"); }

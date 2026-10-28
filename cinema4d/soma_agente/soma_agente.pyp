@@ -2,6 +2,7 @@
 with Claude, ChatGPT or Antigravity that edits the active document."""
 import os
 import sys
+import threading
 import time
 import traceback
 
@@ -136,6 +137,14 @@ class SomaDialog(gui.GeDialog):
                           "Soma Agente: o agente quer adicionar: %s.\n\n%s\n%s\n\nConectores rodam programas neste computador. Aprovar?")
                         % (item["kind"], item["name"], item["detail"] or item["description"]))
             extensions.approve(item["kind"], item["name"], gui.QuestionDialog(question))
+        # A newer Soma Agente on GitHub: offer it once per version.
+        update = getattr(agent(), "update", None) or {}
+        if update.get("available") and not update.get("requested") and update.get("latest") not in asked:
+            asked.add(update.get("latest"))
+            if gui.QuestionDialog(L("Soma Agente %s is available (you have %s).\n\nUpdate now? Reopen Cinema 4D after it installs.",
+                                    "O Soma Agente %s está disponível (você tem a %s).\n\nAtualizar agora? Reabra o Cinema 4D depois que instalar.")
+                                  % (update.get("latest"), update.get("current"))):
+                threading.Thread(target=agent().install_update, daemon=True).start()
 
     def safely(self, action):
         """Runs dialog work; a failure is logged and shown instead of breaking the panel."""
@@ -176,7 +185,7 @@ class SomaDialog(gui.GeDialog):
         effort = a.selected_effort()
         self.SetInt32(ID_EFFORT, efforts.index(effort) if effort in efforts else 0)
         self.Enable(ID_EFFORT, bool(efforts))
-        self.SetString(ID_STATUS, a.status)
+        self.SetString(ID_STATUS, a.status + ("  ·  " + a.update_text() if a.update_text() else ""))
         self.Enable(ID_CONNECT, not a.signed_in)
         self.Enable(ID_SEND, not a.busy)
         self.Enable(ID_STOP, a.busy)
@@ -230,6 +239,7 @@ class SomaDialog(gui.GeDialog):
             a.login()
         elif cid == ID_CHECK:
             a.refresh()
+            threading.Thread(target=lambda: a.check_update(True), daemon=True).start()
         elif cid == ID_SEND:
             if a.send(self.GetString(ID_PROMPT), self.attachments):
                 self.SetString(ID_PROMPT, "")

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.6.3
+- O próprio agente confere atualizações: cada programa verifica o GitHub ao abrir e mostra "Atualizar agora" quando há versão nova (painel Adobe, Blender, Cinema 4D e Figma).
+- Botão "Verificar atualizações" (Configurações > Agente no painel Adobe; painel do Blender; botão Verificar no Cinema 4D).
+- Pergunte no chat "tem atualização?": a IA usa as novas ferramentas soma_check_update e soma_install_update.
+- Quem tem só o app do Claude ou do Antigravity agora vê o que falta: o botão "Instalar Claude Code" / "Instalar CLI do Antigravity" roda o instalador oficial numa janela e o Soma verifica de novo sozinho. Avisa que o Claude Code precisa do plano Pro ou Max.
+- Corrigido: no painel Adobe, os botões que abrem páginas não faziam nada; "Verificar de novo" agora mostra que está verificando e "Copiar relatório" funciona dentro dos programas Adobe.
+
 ## 1.6.2
 - Português (Brasil) e inglês em tudo: instalador (botão English/Português no topo), painel Adobe (Configurações > Aparência > Idioma), Blender, Cinema 4D e Figma. A escolha vale para todos os programas; sem escolha, segue o idioma do programa ou do Windows.
 - Detecção das IAs mais completa: Claude Code e Codex instalados por npm, pnpm, nvm ou WinGet, PATH atualizado sem reiniciar e a CLI do Antigravity em qualquer pasta do PATH.

@@ -325,15 +325,18 @@
     return localPath;
   }
 
+  // Opens a page in the default browser. (window.open inside CEP opens nothing.)
   function openExternal(url) {
-    if (cep && typeof cep.openURLInDefaultBrowser === "function") {
-      cep.openURLInDefaultBrowser(url);
+    if (window.cep && window.cep.util && typeof window.cep.util.openURLInDefaultBrowser === "function") {
+      window.cep.util.openURLInDefaultBrowser(url);
       return;
     }
     if (node.childProcess) {
-      if (window.AEPlatform.windows(node)) { window.open(url, "_blank"); }
+      if (window.AEPlatform.windows(node)) { node.childProcess.spawn("explorer.exe", [url], { detached: true, stdio: "ignore" }).unref(); }
       else { node.childProcess.spawn("open", [url], { detached: true, stdio: "ignore" }).unref(); }
+      return;
     }
+    window.open(url, "_blank");
   }
 
   function evalHost(script, withMetadata) {
@@ -529,7 +532,7 @@
       return Promise.resolve(reply({
         protocolVersion: params.protocolVersion || "2025-06-18",
         capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: MCP_SERVER_NAME, title: "Soma Agente", version: "1.6.2" }
+        serverInfo: { name: MCP_SERVER_NAME, title: "Soma Agente", version: "1.6.3" }
       }));
     }
     if (message.method === "ping") {
@@ -625,25 +628,58 @@
     });
   };
 
-  // The Soma Hub downloads new releases from GitHub and installs them once the
-  // Adobe programs are closed; tell the user when one is waiting.
-  var announcedUpdate = null;
-  function checkHubUpdate() {
-    if (!node.http || isBusy) { return; }
-    var req = node.http.get({ host: "127.0.0.1", port: 47821, path: "/hub/update", timeout: 3000 }, function (res) {
-      var chunks = [];
-      res.on("data", function (chunk) { chunks.push(chunk); });
-      res.on("end", function () {
-        var update;
-        try { update = JSON.parse(node.Buffer.concat(chunks).toString("utf8")); } catch (error) { return; }
-        if (update.status === "waiting" && update.latest && announcedUpdate !== update.latest) {
-          announcedUpdate = update.latest;
-          showBanner("Soma Agente " + update.latest + " is ready. Save your work and close the Adobe programs; the update installs automatically and you can reopen them right after.", "info");
-        }
-      });
+  // The panel asks the Soma Hub to check GitHub when it opens (and every few
+  // hours). A newer version shows a bar with "Update now"; the hub installs it
+  // as soon as the Adobe programs are closed.
+  var dismissedUpdate = null;
+  function showUpdate(update) {
+    var bar = document.getElementById("updateBar");
+    var statusText = document.getElementById("updateStatus");
+    var installButton = document.getElementById("installUpdate");
+    if (!update) { return; }
+    var available = update.available && update.latest;
+    if (update.status === "error") {
+      statusText.textContent = L("Could not check for updates: ", "Não deu para verificar atualizações: ") + update.detail;
+    } else if (!available) {
+      statusText.textContent = L("You have the latest version (" + update.current + ").", "Você está na versão mais recente (" + update.current + ").");
+    } else if (update.requested) {
+      statusText.textContent = L("Version " + update.latest + " installs as soon as you close the Adobe programs (save your work first). You can reopen them right after.",
+        "A versão " + update.latest + " instala assim que você fechar os programas Adobe (salve antes). Pode reabrir logo depois.");
+    } else {
+      statusText.textContent = L("Version " + update.latest + " is available (you have " + update.current + ").", "A versão " + update.latest + " está disponível (você tem a " + update.current + ").");
+    }
+    installButton.hidden = !available || update.requested;
+    bar.innerHTML = "";
+    bar.hidden = !available || dismissedUpdate === update.latest + (update.requested ? "+" : "");
+    if (bar.hidden) { return; }
+    var text = document.createElement("div");
+    text.textContent = statusText.textContent;
+    bar.appendChild(text);
+    var actions = document.createElement("div");
+    actions.className = "ext-actions";
+    var buttons = update.requested ? [] : [{ label: L("Update now", "Atualizar agora"), primary: true, run: installUpdate }];
+    buttons.push({ label: L("Later", "Depois"), run: function () { dismissedUpdate = update.latest + (update.requested ? "+" : ""); bar.hidden = true; } });
+    buttons.forEach(function (b) {
+      var button = document.createElement("button");
+      button.type = "button";
+      button.textContent = b.label;
+      if (b.primary) { button.className = "primary"; }
+      button.addEventListener("click", b.run);
+      actions.appendChild(button);
     });
-    req.on("error", function () {});
-    req.on("timeout", function () { req.destroy(); });
+    bar.appendChild(actions);
+  }
+
+  function checkHubUpdate(force) {
+    if (!extensions || (isBusy && !force)) { return; }
+    extensions.hubUpdate("check", force === true).then(showUpdate, function (error) {
+      if (force === true) { document.getElementById("updateStatus").textContent = error.message; }
+    });
+  }
+
+  function installUpdate() {
+    if (!extensions) { return; }
+    extensions.hubUpdate("install").then(showUpdate, function (error) { showBanner(error.message); });
   }
 
   // Tells the local Soma Hub where this program's tools are, so an outside
@@ -1300,17 +1336,31 @@
     elements.diagnosticTimestamp.textContent = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   }
 
+  // Shows that something happened even when the result is the same as before.
   function runConnectionDiagnostics() {
     elements.runDiagnostics.disabled = true;
+    elements.diagnosticMessage.textContent = L("Checking ", "Verificando o ") + providerLabel() + "…";
     var check = client.ready ? client.refreshAccount() : bootstrap();
-    return Promise.resolve(check).then(function () { elements.runDiagnostics.disabled = false; }, function () { elements.runDiagnostics.disabled = false; });
+    function done() {
+      elements.runDiagnostics.disabled = false;
+      renderDiagnosticReport();
+    }
+    return Promise.resolve(check).then(done, done);
   }
 
   function copyDiagnosticReport() {
-    var report = "Soma Agente connection report\nAI: " + providerLabel() + "\nBinary: " + (client.binary || "not found") + (client.version ? " (" + client.version + ")" : "") + "\nStatus: " + connectionDiagnostics.claude;
-    function copied() { elements.copyDiagnostics.textContent = "Copied"; setTimeout(function () { elements.copyDiagnostics.textContent = "Copy report"; }, 1600); }
-    if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(report).then(copied).catch(function () {}); return; }
-    var area = document.createElement("textarea"); area.value = report; document.body.appendChild(area); area.select(); document.execCommand("copy"); document.body.removeChild(area); copied();
+    var report = "Soma Agente connection report\nProgram: " + HOST.name + "\nAI: " + providerLabel() + "\nBinary: " + (client.binary || "not found") + (client.version ? " (" + client.version + ")" : "") +
+      "\nClaude app: " + window.AEPlatform.hasClaudeApp(node) + "\nAntigravity app: " + window.AEPlatform.hasAntigravityApp(node) + "\nStatus: " + connectionDiagnostics.claude;
+    function copied() { elements.copyDiagnostics.textContent = L("Copied", "Copiado"); setTimeout(function () { elements.copyDiagnostics.textContent = L("Copy report", "Copiar relatório"); }, 1600); }
+    // CEP may refuse the async clipboard; the selection copy works there.
+    function fallback() {
+      var area = document.createElement("textarea"); area.value = report; document.body.appendChild(area); area.select();
+      var ok = false; try { ok = document.execCommand("copy"); } catch (error) { ok = false; }
+      document.body.removeChild(area);
+      if (ok) { copied(); } else { showBanner(report, "info"); }
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(report).then(copied, fallback); return; }
+    fallback();
   }
 
   var agentInstructions = HOST.instructions.join(" ");
@@ -1395,17 +1445,49 @@
     }
   }
 
+  // Why the AI cannot start, in plain words. The chat apps alone are not enough:
+  // Soma runs the command-line agents (Claude Code, Codex, agy).
+  function missingMessage() {
+    var win = window.AEPlatform.windows(node);
+    if (provider === "claude") {
+      return (window.AEPlatform.hasClaudeApp(node)
+        ? L("The Claude app is installed, but Soma needs Claude Code, which the chat app does not include. ", "O app do Claude está instalado, mas o Soma precisa do Claude Code, que não vem com o app de chat. ")
+        : L("Claude Code was not found on this computer. ", "O Claude Code não foi encontrado neste computador. ")) +
+        (win ? L("Click Install Claude Code to install it, then sign in. ", "Clique em Instalar Claude Code para instalar e depois faça o login. ") : L("Install it from code.claude.com, then click Check again. ", "Instale pelo code.claude.com e clique em Verificar de novo. ")) +
+        L("Claude Code needs a paid Claude plan (Pro or Max); the free plan does not include it.", "O Claude Code precisa de um plano pago do Claude (Pro ou Max); o plano gratuito não inclui.");
+    }
+    if (provider === "antigravity") {
+      return (window.AEPlatform.hasAntigravityApp(node)
+        ? L("The Antigravity app is installed, but Soma needs the Antigravity CLI (agy), which is installed separately. ", "O app do Antigravity está instalado, mas o Soma precisa da CLI do Antigravity (agy), que é instalada à parte. ")
+        : L("The Antigravity CLI (agy) was not found on this computer. ", "A CLI do Antigravity (agy) não foi encontrada neste computador. ")) +
+        (win ? L("Click Install Antigravity CLI; it uses the same Google login as the app.", "Clique em Instalar CLI do Antigravity; ela usa o mesmo login Google do app.") : L("Install it from antigravity.google, then click Check again.", "Instale pelo antigravity.google e clique em Verificar de novo."));
+    }
+    return L("Codex was not found on this computer. Install the Codex app (chatgpt.com/codex) or the Codex CLI, then click Check again.", "O Codex não foi encontrado neste computador. Instale o app Codex (chatgpt.com/codex) ou a CLI do Codex e clique em Verificar de novo.");
+  }
+
+  // Runs the official installer of Claude Code or the Antigravity CLI in a
+  // visible PowerShell window, then checks again when it closes.
+  function installAgentCli() {
+    var scripts = { claude: "https://claude.ai/install.ps1", antigravity: "https://antigravity.google/cli/install.ps1" };
+    if (!window.AEPlatform.windows(node) || !scripts[provider] || !node.childProcess) { openExternal(PROVIDERS[provider].download); return; }
+    var name = provider === "claude" ? "Claude Code" : "Antigravity CLI";
+    var command = "Write-Host '" + L("Installing ", "Instalando o ") + name + "...'; irm " + scripts[provider] + " | iex; Write-Host ''; Write-Host '" +
+      L("Done. This window closes in a few seconds; Soma checks again by itself.", "Pronto. Esta janela fecha em alguns segundos; o Soma verifica de novo sozinho.") + "'; Start-Sleep -Seconds 6";
+    // start /wait opens a real console window and returns when it closes.
+    var child = node.childProcess.spawn("cmd.exe", ["/d", "/c", 'start "Soma Agente" /wait powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "' + command + '"'],
+      { stdio: "ignore", windowsHide: true, windowsVerbatimArguments: true });
+    showBanner(L("Installing " + name + " in the window that opened. Soma checks again when it finishes.", "Instalando o " + name + " na janela que abriu. O Soma verifica de novo quando terminar."), "info");
+    child.on("exit", function () { bootstrap(); });
+    child.on("error", function (error) { showBanner(error.message); });
+  }
+
   function renderAccount(account, requiresAuth) {
     elements.accountButton.disabled = false;
     elements.accountButton.classList.toggle("connected", Boolean(account) && !requiresAuth);
     if (!client.binary) {
-      elements.accountLabel.textContent = "Install " + providerLabel();
+      elements.accountLabel.textContent = { claude: L("Install Claude Code", "Instalar Claude Code"), chatgpt: L("Install Codex", "Instalar Codex"), antigravity: L("Install Antigravity CLI", "Instalar CLI do Antigravity") }[provider];
       elements.openaiDiagnosticSummary.textContent = "Not found";
-      connectionDiagnostics.claude = {
-        claude: "Claude Code was not found on this computer. Install the Claude desktop app (claude.ai/download) or the Claude Code CLI, then click Check again.",
-        chatgpt: "Codex was not found on this computer. Install the Codex app (chatgpt.com/codex) or the Codex CLI, then click Check again.",
-        antigravity: "The Antigravity CLI (agy) was not found. Install it from antigravity.google (Getting started > CLI), then click Check again."
-      }[provider];
+      connectionDiagnostics.claude = missingMessage();
       renderDiagnosticReport();
       return;
     }
@@ -3108,17 +3190,17 @@
     }).catch(function (error) {
       setConnectionState("error", providerLabel() + " unavailable");
       renderAccount(null, true);
-      connectionDiagnostics.claude = error.message;
+      connectionDiagnostics.claude = client.binary ? error.message : missingMessage();
       elements.openaiDiagnosticSummary.textContent = client.binary ? "Could not start" : "Not found";
       renderDiagnosticReport();
-      showBanner(error.message);
+      showBanner(connectionDiagnostics.claude, client.binary ? undefined : "info");
     });
   }
 
   elements.accountButton.addEventListener("click", function () {
     if (!client.ready) {
       var finders = { claude: "findClaudeBinary", chatgpt: "findCodexBinary", antigravity: "findAgyBinary" };
-      if (!window.AEPlatform[finders[provider]](node)) { openExternal(PROVIDERS[provider].download); }
+      if (!window.AEPlatform[finders[provider]](node)) { installAgentCli(); return; }
       bootstrap();
       return;
     }
@@ -3296,6 +3378,11 @@
   resizePrompt();
   wireExtensions();
   bootstrap();
-  setTimeout(checkHubUpdate, 20000);
-  setInterval(checkHubUpdate, 10 * 60 * 1000);
+  document.getElementById("checkUpdates").addEventListener("click", function () {
+    document.getElementById("updateStatus").textContent = L("Checking GitHub…", "Verificando no GitHub…");
+    checkHubUpdate(true);
+  });
+  document.getElementById("installUpdate").addEventListener("click", installUpdate);
+  setTimeout(checkHubUpdate, 3000);
+  setInterval(checkHubUpdate, 3 * 60 * 60 * 1000);
 }());

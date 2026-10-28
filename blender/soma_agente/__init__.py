@@ -4,7 +4,7 @@ sidebar (N panel > Soma) and let it edit the scene."""
 bl_info = {
     "name": "Soma Agente",
     "author": "Soma",
-    "version": (1, 6, 2),
+    "version": (1, 6, 3),
     "blender": (4, 2, 0),
     "location": "3D View > Sidebar (N) > Soma",
     "description": "AI agent (Claude or ChatGPT) that edits your scene from a chat",
@@ -13,6 +13,7 @@ bl_info = {
 
 import os
 import textwrap
+import threading
 
 import bpy
 from bpy.props import CollectionProperty, EnumProperty, StringProperty
@@ -243,6 +244,21 @@ class SOMA_OT_approve(Operator):
         return {"FINISHED"}
 
 
+class SOMA_OT_update(Operator):
+    bl_idname = "soma.update"
+    bl_label = "Update"
+    bl_description = "Install the latest Soma Agente from GitHub"
+    description = _tip("Install the latest Soma Agente from GitHub", "Instalar a versão mais nova do Soma Agente pelo GitHub")
+    check_only: bpy.props.BoolProperty(default=False)
+
+    def execute(self, context):
+        if self.check_only:
+            threading.Thread(target=lambda: agent().check_update(True), daemon=True).start()
+        else:
+            threading.Thread(target=agent().install_update, daemon=True).start()
+        return {"FINISHED"}
+
+
 class SOMA_OT_open_chat(Operator):
     bl_idname = "soma.open_chat"
     bl_label = "Full chat as text"
@@ -297,6 +313,13 @@ class SOMA_PT_chat(Panel):
             no = row.operator("soma.approve", text=L("Reject", "Recusar"), icon="X")
             no.kind, no.name, no.accept = item["kind"], item["name"], False
 
+        update = a.update_text()
+        if update:
+            ask = layout.box()
+            ask.label(text=update, icon="IMPORT")
+            if not (getattr(a, "update", None) or {}).get("requested"):
+                ask.operator("soma.update", text=L("Update now", "Atualizar agora"), icon="IMPORT").check_only = False
+
         box = layout.box()
         status = box.row()
         status.label(text=a.status, icon="CHECKMARK" if a.signed_in and not a.busy else ("SORTTIME" if a.busy else "INFO"))
@@ -344,11 +367,13 @@ class SOMA_PT_chat(Panel):
         row.operator("soma.attach", text="", icon="IMAGE_DATA")
         row.operator("soma.new_chat", text="", icon="FILE_NEW")
         row.operator("soma.open_chat", text="", icon="TEXT")
-        layout.prop(context.window_manager, "soma_language", text="")
+        row = layout.row(align=True)
+        row.prop(context.window_manager, "soma_language", text="")
+        row.operator("soma.update", text=L("Check for updates", "Verificar atualizações"), icon="FILE_REFRESH").check_only = True
 
 
 CLASSES = (SomaAttachment, SOMA_OT_approve, SOMA_OT_send, SOMA_OT_stop, SOMA_OT_new_chat, SOMA_OT_connect, SOMA_OT_check,
-           SOMA_OT_attach, SOMA_OT_clear_attachments, SOMA_OT_open_chat, SOMA_PT_chat)
+           SOMA_OT_attach, SOMA_OT_clear_attachments, SOMA_OT_open_chat, SOMA_OT_update, SOMA_PT_chat)
 
 
 def register():

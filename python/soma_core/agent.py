@@ -26,7 +26,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from . import extensions, system
 from .i18n import L
 
-VERSION = "1.6.2"
+VERSION = "1.6.3"
 CLAUDE_EFFORTS = ["low", "medium", "high", "xhigh", "max"]
 CLAUDE_MODELS = [
     {"id": "default", "model": None, "name": "Claude (default)", "efforts": [], "effort": None},
@@ -271,6 +271,50 @@ class Agent:
         self.refresh()
         if self.host.id != "figma":
             threading.Thread(target=self._hub_heartbeat, daemon=True).start()
+            threading.Thread(target=self._update_loop, daemon=True).start()
+
+    # -------------------------------------------------------------- updates
+    def _update_loop(self):
+        """Asks the Soma Hub to check GitHub when the program opens, then every few hours."""
+        time.sleep(5)
+        while self.mcp.httpd:
+            self.check_update()
+            time.sleep(3 * 3600)
+
+    def check_update(self, force=False):
+        """Latest Release info from the Soma Hub ({} when the hub is off)."""
+        try:
+            self.update = extensions.hub_update("check", force)
+        except RuntimeError as error:
+            self.update = {}
+            if force:
+                self.add_message("error", str(error))
+        if force and self.update:
+            if self.update.get("status") == "error":
+                self.add_message("error", L("Could not check for updates: ", "Não deu para verificar atualizações: ") + str(self.update.get("detail")))
+            elif not self.update.get("available"):
+                self.add_message("status", L("You have the latest version (%s).", "Você está na versão mais recente (%s).") % self.update.get("current", VERSION))
+        self._changed()
+        return self.update
+
+    def install_update(self):
+        """Installs the newer version as soon as no Adobe program is open."""
+        try:
+            self.update = extensions.hub_update("install")
+        except RuntimeError as error:
+            self.add_message("error", str(error))
+        self._changed()
+
+    def update_text(self):
+        """One line for the panel when a newer version exists, else ""."""
+        u = getattr(self, "update", None) or {}
+        if not (u.get("available") and u.get("latest")):
+            return ""
+        if u.get("requested") and u.get("status") == "waiting":
+            return u.get("detail") or L("Close the Adobe programs to install %s", "Feche os programas Adobe para instalar a %s") % u["latest"]
+        if u.get("requested"):
+            return L("Installing %s — reopen %s afterwards", "Instalando a %s — reabra o %s depois") % (u["latest"], self.host.name)
+        return L("Soma Agente %s is available (you have %s)", "Soma Agente %s disponível (você tem a %s)") % (u["latest"], u.get("current", VERSION))
 
     def shutdown(self):
         self.stop()
@@ -304,9 +348,12 @@ class Agent:
             self.binary = system.find_claude() if self.provider == "claude" else system.find_codex()
             if not self.binary:
                 self.signed_in = None
-                self.set_status(L("%s not found — install %s", "%s não encontrado — instale %s") % (
-                    "Claude Code" if self.provider == "claude" else "Codex",
-                    L("the Claude app", "o app Claude") + " (claude.ai/download)" if self.provider == "claude" else L("the Codex app", "o app Codex") + " (chatgpt.com/codex)"))
+                if self.provider == "claude":
+                    self.set_status((L("The Claude app does not include Claude Code — ", "O app do Claude não inclui o Claude Code — ") if system.has_claude_app()
+                                     else L("Claude Code not found — ", "Claude Code não encontrado — ")) +
+                                    L("click Connect to install it (needs a Pro or Max plan)", "clique em Conectar para instalar (precisa do plano Pro ou Max)"))
+                else:
+                    self.set_status(L("Codex not found — install the Codex app (chatgpt.com/codex)", "Codex não encontrado — instale o app Codex (chatgpt.com/codex)"))
                 return
             env = system.environment(self.binary)
             try:
@@ -334,7 +381,9 @@ class Agent:
         self.binary = system.find_agy()
         if not self.binary:
             self.signed_in = None
-            self.set_status(L("Antigravity CLI not found — install it from antigravity.google (agy)", "CLI do Antigravity não encontrada — instale pelo antigravity.google (agy)"))
+            self.set_status((L("The Antigravity app does not include its CLI (agy) — ", "O app do Antigravity não inclui a CLI (agy) — ") if system.has_antigravity_app()
+                             else L("Antigravity CLI (agy) not found — ", "CLI do Antigravity (agy) não encontrada — ")) +
+                            L("click Connect to install it", "clique em Conectar para instalar"))
             return
         try:
             out = subprocess.run([self.binary, "models"], capture_output=True, text=True, timeout=45,
@@ -367,7 +416,13 @@ class Agent:
 
     def login(self):
         if not self.binary:
-            system.open_url({"claude": "https://claude.ai/download", "chatgpt": "https://chatgpt.com/codex", "antigravity": "https://antigravity.google/docs/getting-started"}[self.provider])
+            # Claude Code and the agy CLI have official one-line installers; run them and check again after.
+            proc = system.install_cli(self.provider, L("Done. This window closes in a few seconds.", "Pronto. Esta janela fecha em alguns segundos."))
+            if proc is None:
+                system.open_url({"claude": "https://code.claude.com/docs/en/setup", "chatgpt": "https://chatgpt.com/codex", "antigravity": "https://antigravity.google/docs/getting-started"}[self.provider])
+                return
+            self.set_status(L("Installing %s in the window that opened…", "Instalando o %s na janela que abriu…") % ("Claude Code" if self.provider == "claude" else "Antigravity CLI"))
+            threading.Thread(target=lambda: (proc.wait(), self.refresh()), daemon=True).start()
             return
         if self.provider == "antigravity":
             system.open_login_window(self.binary, [], "Antigravity login")

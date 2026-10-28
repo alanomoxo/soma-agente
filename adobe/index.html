@@ -31,6 +31,7 @@
 
       <section id="systemBanner" class="system-banner" hidden></section>
       <section id="approvalBar" class="approval-bar" hidden aria-live="polite"></section>
+      <section id="updateBar" class="approval-bar" hidden aria-live="polite"></section>
 
       <section id="progressPanel" class="progress-panel" hidden aria-live="polite">
         <div class="progress-copy">
@@ -142,7 +143,7 @@
         <div class="composer-meta">
           <span id="connectionLabel">Local bridge</span>
           <span>Return to send · Shift+Return for a new line</span>
-          <span id="versionLabel" class="version-label">v1.6.2</span>
+          <span id="versionLabel" class="version-label">v1.6.3</span>
         </div>
       </footer>
         </div>
@@ -204,6 +205,9 @@
           <p id="diagnosticMessage">Checking the agents available on this computer…</p>
           <div class="diagnostic-actions"><button id="runDiagnostics" type="button" class="tool-secondary">Check again</button><button id="copyDiagnostics" type="button" class="tool-secondary">Copy report</button></div>
         </section>
+        <h3>Updates</h3>
+        <p id="updateStatus">Soma Agente checks GitHub for new versions when it opens.</p>
+        <div class="diagnostic-actions"><button id="checkUpdates" type="button" class="tool-secondary">Check for updates</button><button id="installUpdate" type="button" class="tool-secondary" hidden>Update now</button></div>
         <h3>Persistent instructions</h3><p>Your preferences are included with every request. Planning mode remains read-only.</p>
         <textarea id="persistentInstructions" rows="7" maxlength="12000" placeholder="Naming conventions, preferred frame rate, organization, workflow…" aria-label="Persistent instructions"></textarea>
         <button id="saveInstructions" type="button" class="tool-primary" title="Save instructions for future requests">Save instructions</button>

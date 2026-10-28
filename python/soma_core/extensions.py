@@ -252,7 +252,8 @@ def instructions():
     connectors = active_connectors()
     lines = ["Skills and connectors: you can extend yourself. soma_create_skill saves reusable know-how the user asks you to remember (a workflow, a style guide); "
              "soma_install_skill downloads a SKILL.md or a GitHub skill folder; soma_add_connector registers an MCP server (stdio command or HTTP URL). "
-             "Downloaded skills and new connectors only work after the user approves them in the Soma panel, so tell the user to approve them; connectors become available from the next message."]
+             "Downloaded skills and new connectors only work after the user approves them in the Soma panel, so tell the user to approve them; connectors become available from the next message.",
+             UPDATE_INSTRUCTIONS]
     if skills:
         lines.append("Available skills (call soma_read_skill before using one whose description matches the request): " +
                      "; ".join("%s — %s" % (s["name"], s["description"] or s["title"]) for s in skills) + ".")
@@ -276,7 +277,27 @@ TOOLS = [
                                                        "env": {"type": "object", "additionalProperties": {"type": "string"}}, "url": {"type": "string"}, "headers": {"type": "object", "additionalProperties": {"type": "string"}}},
                      "required": ["name"], "additionalProperties": False}},
     {"name": "soma_remove_connector", "description": "Remove a connector.", "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"], "additionalProperties": False}},
+    {"name": "soma_check_update", "description": "Check GitHub now for a newer Soma Agente: returns the installed version, the latest version, whether an update is available and its release notes.",
+     "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}},
+    {"name": "soma_install_update", "description": "Install the latest Soma Agente now (only after the user asked for it). It installs as soon as no Adobe program is open, so tell the user to save and close them.",
+     "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}},
 ]
+
+UPDATE_INSTRUCTIONS = ("Updates: soma_check_update checks GitHub for a newer Soma Agente; when the user asks about updates or new versions, call it and answer with "
+                       "the installed and latest versions and what changed. soma_install_update installs it, only when the user asks.")
+
+HUB_URL = "http://127.0.0.1:47821"
+
+
+def hub_update(action, force=False):
+    """Asks the Soma Hub to check ("check") or install ("install") the latest Release."""
+    request = urllib.request.Request(HUB_URL + "/hub/update/" + action, data=json.dumps({"force": force}).encode("utf-8"),
+                                     method="POST", headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(request, timeout=90) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except OSError:
+        raise RuntimeError("The Soma Hub is not running, so updates cannot be checked. Reinstall Soma Agente or open “Soma Hub” from the Start menu.")
 
 
 def call(name, args):
@@ -299,6 +320,10 @@ def call(name, args):
             data["note"] = "Ask the user to approve the connector in the Soma panel; it works from the next message."
         elif name == "soma_remove_connector":
             data = remove_connector(args.get("name"))
+        elif name == "soma_check_update":
+            data = hub_update("check", force=True)
+        elif name == "soma_install_update":
+            data = hub_update("install")
         else:
             return {"ok": False, "error": "Unknown tool %s" % name}
         return {"ok": True, "data": data}

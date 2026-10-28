@@ -17,6 +17,7 @@ import time
 import urllib.request
 
 from soma_core import VERSION, system
+from soma_core.i18n import L
 
 REPOSITORY = "alanomoxo/soma-agente"
 API = "https://api.github.com/repos/%s/releases/latest" % REPOSITORY
@@ -68,10 +69,12 @@ def _adobe_running():
 
 class Updater:
     def __init__(self):
-        self.state = {"current": installed_version(), "latest": None, "status": "idle", "detail": "", "notes": "", "checked": None}
+        self.state = {"current": installed_version(), "latest": None, "status": "idle", "detail": "", "notes": "",
+                      "checked": None, "available": False, "requested": False}
         self.lock = threading.Lock()
         self.ready_path = None
         self.dry_run = os.environ.get("SOMA_UPDATE_DRY_RUN") == "1"
+        self.wake = threading.Event()
 
     def disabled(self):
         return os.path.exists(os.path.join(system.data_directory(), "auto-update-off.txt"))
@@ -89,23 +92,53 @@ class Updater:
             threading.Thread(target=self._loop, daemon=True).start()
 
     def _loop(self):
-        time.sleep(float(os.environ.get("SOMA_UPDATE_FIRST_DELAY", "60")))
+        self.wake.wait(float(os.environ.get("SOMA_UPDATE_FIRST_DELAY", "60")))
         while True:
+            self.wake.clear()
             wait = CHECK_EVERY
             try:
-                if not self.disabled():
+                if self.snapshot()["requested"] or not self.disabled():
                     wait = self.check_and_install()
+                    # Asked for by the user: keep trying until the Adobe programs close.
+                    if self.snapshot()["requested"] and wait == RETRY_EVERY:
+                        wait = 30
             except Exception as error:  # noqa: BLE001 - try again next round
                 self._set(status="error", detail="%s: %s" % (type(error).__name__, error))
-            time.sleep(wait)
+            self.wake.wait(wait)
+
+    def _fetch(self):
+        release = json.loads(_get(API).decode("utf-8"))
+        latest = release.get("tag_name", "")
+        newer = _version_tuple(latest) > _version_tuple(installed_version())
+        self._set(latest=latest.lstrip("vV"), notes=(release.get("body") or "")[:2000], checked=time.time(),
+                  current=installed_version(), available=newer)
+        return release, newer
+
+    def check(self, force=False):
+        """Reads the latest Release now (at most every few minutes unless forced).
+        Used by the plugins when they open and by the soma_check_update tool."""
+        checked = self.snapshot()["checked"]
+        if force or not checked or time.time() - checked > 300:
+            try:
+                _release, newer = self._fetch()
+                if self.snapshot()["status"] not in ("downloading", "waiting", "installing"):
+                    self._set(status="available" if newer else "up-to-date", detail="")
+            except Exception as error:  # noqa: BLE001 - reported to the caller
+                self._set(status="error", detail="%s: %s" % (type(error).__name__, error))
+        return self.snapshot()
+
+    def request_install(self):
+        """The user asked to update now: install as soon as no Adobe program is open."""
+        self._set(requested=True)
+        self.wake.set()
+        return self.snapshot()
 
     def check_and_install(self):
         """One round. Returns how long to wait before the next round."""
-        release = json.loads(_get(API).decode("utf-8"))
+        release, newer = self._fetch()
         latest = release.get("tag_name", "")
-        self._set(latest=latest.lstrip("vV"), notes=(release.get("body") or "")[:2000], checked=time.time(), current=installed_version())
-        if _version_tuple(latest) <= _version_tuple(installed_version()):
-            self._set(status="up-to-date", detail="")
+        if not newer:
+            self._set(status="up-to-date", detail="", requested=False)
             return CHECK_EVERY
         if not self.ready_path or not os.path.exists(self.ready_path):
             self.ready_path = self._download(release)
@@ -114,9 +147,9 @@ class Updater:
             return CHECK_EVERY
         running = _adobe_running()
         if running:
-            self._set(status="waiting", detail="Close %s to install version %s." % (", ".join(n.replace(".exe", "") for n in running), latest.lstrip("vV")))
+            self._set(status="waiting", detail=L("Close %s to install version %s.", "Feche o %s para instalar a versão %s.") % (", ".join(n.replace(".exe", "") for n in running), latest.lstrip("vV")))
             return RETRY_EVERY
-        self._set(status="installing", detail="Installing version %s…" % latest.lstrip("vV"))
+        self._set(status="installing", detail=L("Installing version %s…", "Instalando a versão %s…") % latest.lstrip("vV"))
         # Detached: the installer stops and restarts this hub while it runs.
         subprocess.Popen([self.ready_path, "/silent", "/update"], creationflags=0x00000008 | 0x00000200, close_fds=True)
         return CHECK_EVERY

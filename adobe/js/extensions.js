@@ -242,7 +242,8 @@
   Extensions.prototype.instructions = function () {
     var skills = this.listSkills().filter(function (s) { return s.state === "enabled"; });
     var connectors = this.activeConnectors();
-    var lines = ["Skills and connectors: you can extend yourself. soma_create_skill saves reusable know-how the user asks you to remember (a workflow, a style guide); soma_install_skill downloads a SKILL.md or a GitHub skill folder; soma_add_connector registers an MCP server (stdio command or HTTP URL). Downloaded skills and new connectors only work after the user approves them in the Soma panel, so tell the user to approve them; connectors become available from the next message."];
+    var lines = ["Skills and connectors: you can extend yourself. soma_create_skill saves reusable know-how the user asks you to remember (a workflow, a style guide); soma_install_skill downloads a SKILL.md or a GitHub skill folder; soma_add_connector registers an MCP server (stdio command or HTTP URL). Downloaded skills and new connectors only work after the user approves them in the Soma panel, so tell the user to approve them; connectors become available from the next message.",
+      "Updates: soma_check_update checks GitHub for a newer Soma Agente; when the user asks about updates or new versions, call it and answer with the installed and latest versions and what changed. soma_install_update installs it, only when the user asks."];
     if (skills.length) { lines.push("Available skills (call soma_read_skill before using one whose description matches the request): " + skills.map(function (s) { return s.name + " — " + (s.description || s.title); }).join("; ") + "."); }
     var names = Object.keys(connectors);
     if (names.length) { lines.push("Connected MCP servers you can use alongside the program's tools: " + names.map(function (n) { return n + (connectors[n].description ? " (" + connectors[n].description + ")" : ""); }).join(", ") + "."); }
@@ -260,8 +261,29 @@
     { name: "soma_delete_skill", description: "Delete a skill.", inputSchema: byName() },
     { name: "soma_list_connectors", description: "List the MCP connectors and their state (enabled, pending approval, disabled).", inputSchema: empty },
     { name: "soma_add_connector", description: "Register an MCP server as a connector: either command + args (+ env) for a stdio server, or url (+ headers) for an HTTP server. The user must approve it in the Soma panel; it is usable from the next message.", inputSchema: { type: "object", properties: { name: str, description: str, command: str, args: { type: "array", items: str }, env: { type: "object", additionalProperties: str }, url: str, headers: { type: "object", additionalProperties: str } }, required: ["name"], additionalProperties: false } },
-    { name: "soma_remove_connector", description: "Remove a connector.", inputSchema: byName() }
+    { name: "soma_remove_connector", description: "Remove a connector.", inputSchema: byName() },
+    { name: "soma_check_update", description: "Check GitHub now for a newer Soma Agente: returns the installed version, the latest version, whether an update is available and its release notes.", inputSchema: empty },
+    { name: "soma_install_update", description: "Install the latest Soma Agente now (only after the user asked for it). It installs as soon as no Adobe program is open, so tell the user to save and close them.", inputSchema: empty }
   ];
+
+  // Asks the Soma Hub to check ("check") or install ("install") the latest Release.
+  Extensions.prototype.hubUpdate = function (action, force) {
+    var http = this.n.http, NodeBuffer = this.n.Buffer;
+    return new Promise(function (resolve, reject) {
+      if (!http) { reject(new Error("Updates are available inside the installed panel.")); return; }
+      var body = JSON.stringify({ force: !!force });
+      var req = http.request({ host: "127.0.0.1", port: 47821, path: "/hub/update/" + action, method: "POST", timeout: 90000, headers: { "Content-Type": "application/json", "Content-Length": NodeBuffer.byteLength(body) } }, function (res) {
+        var chunks = [];
+        res.on("data", function (chunk) { chunks.push(chunk); });
+        res.on("end", function () {
+          try { resolve(JSON.parse(NodeBuffer.concat(chunks).toString("utf8"))); } catch (error) { reject(error); }
+        });
+      });
+      req.on("error", function () { reject(new Error("The Soma Hub is not running, so updates cannot be checked. Reinstall Soma Agente or open “Soma Hub” from the Start menu.")); });
+      req.on("timeout", function () { req.destroy(); });
+      req.end(body);
+    });
+  };
 
   Extensions.prototype.call = function (name, args) {
     var self = this;
@@ -280,6 +302,8 @@
           added.note = "Ask the user to approve the connector in the Soma panel; it works from the next message.";
           return added;
         case "soma_remove_connector": return self.removeConnector(args.name);
+        case "soma_check_update": return self.hubUpdate("check", true);
+        case "soma_install_update": return self.hubUpdate("install");
         default: throw new Error("Unknown tool " + name);
       }
     }).then(function (data) { return { ok: true, data: data }; }, function (error) { return { ok: false, error: error.message }; });

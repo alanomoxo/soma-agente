@@ -124,6 +124,7 @@ def state():
         "toolCalls": host.open_calls(),
         "pending": extensions.pending(),
         "lang": i18n.lang(), "languageChoice": i18n.choice(),
+        "update": updater.snapshot(),
     }
 
 
@@ -223,9 +224,20 @@ class Handler(BaseHTTPRequestHandler):
                 registry.unregister(body)
             self._send(200, {"ok": True})
             return
+        if path == "/hub/update/check":
+            snapshot = updater.check(bool(body.get("force")))
+            agent._changed()
+            self._send(200, snapshot)
+            return
+        if path == "/hub/update/install":
+            snapshot = updater.request_install()
+            agent._changed()
+            self._send(200, snapshot)
+            return
         if path == "/register":
             host.tools = body.get("tools") or []
             self._send(200, {"ok": True, "tools": len(host.tools)})
+            threading.Thread(target=lambda: (updater.check(), agent._changed()), daemon=True).start()
         elif path == "/tool-result":
             host.resolve(body.get("id"), body.get("result"))
             self._send(200, {"ok": True})

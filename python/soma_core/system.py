@@ -269,6 +269,33 @@ def open_url(url):
         pass
 
 
+INSTALL_SCRIPTS = {"claude": "https://claude.ai/install.ps1", "antigravity": "https://antigravity.google/cli/install.ps1"}
+
+
+def install_cli(provider, done_text):
+    """Runs the official installer of Claude Code or the Antigravity CLI in a
+    visible PowerShell window. Returns the process, or None when not on Windows."""
+    if not WINDOWS or provider not in INSTALL_SCRIPTS:
+        return None
+    command = "irm %s | iex; Write-Host ''; Write-Host '%s'; Start-Sleep -Seconds 6" % (INSTALL_SCRIPTS[provider], done_text.replace("'", "''"))
+    return subprocess.Popen(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command],
+                            creationflags=subprocess.CREATE_NEW_CONSOLE)
+
+
+def has_claude_app():
+    """The Claude chat app (it does not include Claude Code)."""
+    local = os.environ.get("LOCALAPPDATA") or os.path.join(HOME, "AppData", "Local")
+    if not WINDOWS:
+        return os.path.isdir("/Applications/Claude.app")
+    return bool(glob.glob(os.path.join(local, "Packages", "Claude_*"))) or os.path.isdir(os.path.join(local, "AnthropicClaude"))
+
+
+def has_antigravity_app():
+    """The Antigravity app (the agy CLI is installed separately)."""
+    local = os.environ.get("LOCALAPPDATA") or os.path.join(HOME, "AppData", "Local")
+    return os.path.isfile(os.path.join(local, "Programs", "Antigravity", "Antigravity.exe")) if WINDOWS else os.path.isdir("/Applications/Antigravity.app")
+
+
 def open_login_window(binary, args, title):
     """Runs `<binary> <args>` in a visible terminal so the user can sign in."""
     if WINDOWS:

@@ -181,5 +181,19 @@
     child.on("error", function () {});
     child.unref();
   }
-  return { windows: windows, dataDirectory: dataDirectory, findCodexBinary: findCodexBinary, findClaudeBinary: findClaudeBinary, findAgyBinary: findAgyBinary, environment: environment, openFolder: openFolder };
+  // The chat apps, which do not include the command-line agents Soma runs;
+  // only used to explain what is missing.
+  function hasClaudeApp(n) {
+    if (!n.fs) { return false; }
+    var env = n.process.env || {}, local = env.LOCALAPPDATA || n.path.join(n.os.homedir(), "AppData", "Local");
+    if (!windows(n)) { return n.fs.existsSync("/Applications/Claude.app"); }
+    try { if (n.fs.readdirSync(n.path.join(local, "Packages")).some(function (name) { return /^claude_/i.test(name); })) { return true; } } catch (error) { /* no Store apps */ }
+    return n.fs.existsSync(n.path.join(local, "AnthropicClaude")) || n.fs.existsSync(n.path.join(local, "Programs", "Claude"));
+  }
+  function hasAntigravityApp(n) {
+    if (!n.fs) { return false; }
+    var env = n.process.env || {}, local = env.LOCALAPPDATA || n.path.join(n.os.homedir(), "AppData", "Local");
+    return windows(n) ? n.fs.existsSync(n.path.join(local, "Programs", "Antigravity", "Antigravity.exe")) : n.fs.existsSync("/Applications/Antigravity.app");
+  }
+  return { windows: windows, dataDirectory: dataDirectory, findCodexBinary: findCodexBinary, findClaudeBinary: findClaudeBinary, findAgyBinary: findAgyBinary, hasClaudeApp: hasClaudeApp, hasAntigravityApp: hasAntigravityApp, environment: environment, openFolder: openFolder };
 }));
