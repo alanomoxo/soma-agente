@@ -42,6 +42,8 @@
     "New chat": "Nova conversa",
     "Revert the last Soma Agente run (mouse click only)": "Desfazer a última execução do Soma Agente (só com clique do mouse)",
     "Revert last run": "Desfazer a última execução",
+    "Undo Soma's last step (mouse click only)": "Desfazer o último passo do Soma (só com clique do mouse)",
+    "Undo last step": "Desfazer o último passo",
     "Settings: connection, instructions, and appearance": "Configurações: conexão, instruções e aparência",
     "Settings": "Configurações",
     "Analyzing the request": "Analisando o pedido",

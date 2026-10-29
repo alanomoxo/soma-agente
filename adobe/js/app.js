@@ -17,6 +17,7 @@
     runDiagnostics: document.getElementById("runDiagnostics"),
     copyDiagnostics: document.getElementById("copyDiagnostics"),
     undoButton: document.getElementById("undoButton"),
+    undoStepButton: document.getElementById("undoStepButton"),
     editModeButton: document.getElementById("editModeButton"),
     toolModeButton: document.getElementById("toolModeButton"),
     toolPhaseBar: document.getElementById("toolPhaseBar"),
@@ -147,7 +148,7 @@
     }
     var features = HOST.features || {};
     document.getElementById("easeButton").hidden = !features.eases;
-    elements.undoButton.hidden = !features.undo;
+    elements.undoButton.hidden = elements.undoStepButton.hidden = !features.undo;
     document.title = "Soma Agente · " + HOST.name;
   }
 
@@ -1914,7 +1915,7 @@
     isBusy = false;
     updateRunControls();
     lastTurnMutations = currentTurnMutations;
-    elements.undoButton.disabled = lastTurnMutations < 1;
+    elements.undoButton.disabled = elements.undoStepButton.disabled = lastTurnMutations < 1;
     Object.keys(activeAssistantMessages).forEach(function (id) {
       activeAssistantMessages[id].article.classList.remove("streaming");
     });
@@ -2025,7 +2026,7 @@
     completedToolCount = 0;
     currentTurnMutations = 0;
     updateRunControls();
-    elements.undoButton.disabled = true;
+    elements.undoButton.disabled = elements.undoStepButton.disabled = true;
     hideBanner();
     setProgress(sentAttachments.length ? "Reading the attachments" : "Analyzing the request", sentAttachments.length ? "Packaging images, video frames, and transcripts for " + providerLabel() + "." : "Building an inspection and verification plan for the active composition.", "running");
 
@@ -2051,7 +2052,7 @@
     isBusy = true;
     activeRun = { kind: "local", stopRequested: false };
     currentTurnMutations = 0; completedToolCount = 0;
-    elements.undoButton.disabled = true; updateRunControls();
+    elements.undoButton.disabled = elements.undoStepButton.disabled = true; updateRunControls();
     var run = activeRun;
     addMessage("user", "Run tool: " + tool.name);
     showToolEvent("local-tool", "execute_script", "running", { summary: tool.description || tool.name });
@@ -2066,29 +2067,36 @@
     }).catch(function (error) { finishTurn({ status: "failed", error: error }); });
   }
 
-  function revertLastRun() {
+  // Reverts the last run's Undo steps: all of them, or only the last `count` ("Undo last step").
+  function revertLastRun(count) {
     if (isBusy || lastTurnMutations < 1) {
       return;
     }
-    var total = lastTurnMutations;
+    var total = typeof count === "number" ? Math.min(count, lastTurnMutations) : lastTurnMutations;
+    var whole = total === lastTurnMutations;
     var remaining = total;
     isBusy = true;
     updateRunControls();
     elements.sendButton.disabled = true;
-    elements.undoButton.disabled = true;
+    elements.undoButton.disabled = elements.undoStepButton.disabled = true;
     setProgress("Reverting the last run", "Restoring " + total + " " + HOST.name + " undo step" + (total === 1 ? "." : "s."), "running");
 
     function undoNext() {
       if (remaining < 1) {
         isBusy = false;
-        lastTurnMutations = 0;
+        lastTurnMutations -= total;
         currentTurnMutations = 0;
         elements.sendButton.disabled = false;
         updateRunControls();
         client.threadId = null;
-        elements.undoButton.disabled = true;
-        addMessage("assistant", L("Reverted the last Soma Agente run (" + total + " undo step" + (total === 1 ? "" : "s") + ").", "Última execução do Soma Agente desfeita (" + total + " passo(s) de desfazer)."));
-        setProgress("Last run reverted", "The composition is back to the state before that agent run.", "complete");
+        elements.undoButton.disabled = elements.undoStepButton.disabled = lastTurnMutations < 1;
+        if (whole) {
+          addMessage("assistant", L("Reverted the last Soma Agente run (" + total + " undo step" + (total === 1 ? "" : "s") + ").", "Última execução do Soma Agente desfeita (" + total + " passo(s) de desfazer)."));
+          setProgress("Last run reverted", "The composition is back to the state before that agent run.", "complete");
+        } else {
+          addMessage("assistant", L("Undid Soma's last step (" + lastTurnMutations + " left in that run).", "Último passo do Soma desfeito (restam " + lastTurnMutations + " dessa execução)."));
+          setProgress("Step undone", "Undo again to go back one more step.", "complete");
+        }
         return;
       }
       callAfterEffects("undo_last_action", {}).then(function () {
@@ -2097,10 +2105,10 @@
         undoNext();
       }).catch(function (error) {
         isBusy = false;
-        lastTurnMutations = remaining;
+        lastTurnMutations = lastTurnMutations - total + remaining;
         elements.sendButton.disabled = false;
         updateRunControls();
-        elements.undoButton.disabled = remaining < 1;
+        elements.undoButton.disabled = elements.undoStepButton.disabled = remaining < 1;
         showBanner("The last run could not be fully reverted: " + error.message);
         setProgress("Revert stopped", error.message, "failed");
       });
@@ -2906,7 +2914,7 @@
       var notes = [];
       if (properties.some(function (property) { return property.overshootClampedForSpatial; })) { notes.push("Position paths cannot overshoot through speed, so the overshoot was flattened there"); }
       if (properties.some(function (property) { return property.approximate; })) { notes.push("shape or custom properties get an approximate curve"); }
-      if (result.undoable) { lastTurnMutations = 1; elements.undoButton.disabled = false; }
+      if (result.undoable) { lastTurnMutations = 1; elements.undoButton.disabled = elements.undoStepButton.disabled = false; }
       showBanner("Applied " + easeState.name + " to " + segments + " segment" + (segments === 1 ? "" : "s") + " on " + properties.length + " propert" + (properties.length === 1 ? "y" : "ies") + "." + (notes.length ? " " + notes.join("; ") + "." : "") + " Undo with the revert arrow or Ctrl+Z in " + HOST.name + ".", "info");
     }).catch(function (error) {
       showBanner(error.message, /No keyframes are selected/.test(error.message) ? "info" : undefined);
@@ -3246,7 +3254,8 @@
   elements.buildToolButton.addEventListener("click", function () { setToolPhase("build"); });
   elements.showDraftButton.addEventListener("click", function () { if (latestToolDraft) { dock.open(latestToolDraft, true); } });
   elements.createToolButton.addEventListener("click", function () { setChatMode("tools"); setToolPhase("plan"); elements.promptInput.focus(); });
-  elements.undoButton.addEventListener("click", revertLastRun);
+  elements.undoButton.addEventListener("click", function () { revertLastRun(); });
+  elements.undoStepButton.addEventListener("click", function () { revertLastRun(1); });
   document.getElementById("newChatButton").addEventListener("click", resetChat);
   elements.modelButton.addEventListener("click", function (event) {
     event.stopPropagation();

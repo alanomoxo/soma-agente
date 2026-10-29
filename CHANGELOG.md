@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.4
+- After Effects: o Ctrl+Z volta o trabalho da IA passo a passo. A IA faz uma camada, animação ou efeito por vez, e cada passo aparece no menu Editar com o nome do que fez (por exemplo "Desfazer Soma: Cria o título").
+- Painel Adobe: botão "Desfazer o último passo" ao lado de "Desfazer a última execução".
+
 ## 1.7.3
 - Botão "Sugerir ou reportar um problema" em todos os painéis: abre uma issue no GitHub já preenchida com a versão do Soma, o programa, o sistema e a IA em uso. No painel Adobe fica em Configurações > Agente; no Blender, em Opções; no Cinema 4D, ao lado de Verificar; no Cavalry e no Figma, no botão "?" do topo.
 

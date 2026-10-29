@@ -1381,7 +1381,9 @@ AEAgent.invoke = function (encodedPayload) {
         if (mutating[payload.tool]) {
             var last = AEAgent._undoRecords.length ? AEAgent._undoRecords[AEAgent._undoRecords.length - 1] : null;
             if (last && (last.project !== beforeProject || last.revision !== beforeRevision)) { AEAgent._undoRecords = []; }
-            app.beginUndoGroup("AE Agent: " + payload.tool.replace(/_/g, " "));
+            // Named after the step's summary so Edit > Undo says what it reverts.
+            var summary = payload.args && payload.args.summary ? String(payload.args.summary) : payload.tool.replace(/_/g, " ");
+            app.beginUndoGroup("Soma: " + (summary.length > 60 ? summary.substring(0, 57) + "..." : summary));
             undoOpen = true;
         }
         var data = AEAgent[payload.tool](payload.args || {});
