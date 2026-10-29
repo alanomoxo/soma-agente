@@ -533,7 +533,7 @@
       return Promise.resolve(reply({
         protocolVersion: params.protocolVersion || "2025-06-18",
         capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: MCP_SERVER_NAME, title: "Soma Agente", version: "1.7.3" }
+        serverInfo: { name: MCP_SERVER_NAME, title: "Soma Agente", version: "1.7.4" }
       }));
     }
     if (message.method === "ping") {
@@ -1305,7 +1305,7 @@
   function providerLabel() { return PROVIDERS[provider].label; }
 
   // New GitHub issue for suggestions and bug reports, prefilled with what this person runs.
-  var SOMA_INFO = { title: "Soma Agente", version: "1.7.3" };
+  var SOMA_INFO = { title: "Soma Agente", version: "1.7.4" };
   function feedbackUrl() {
     var body = L("**Version:** ", "**Versão:** ") + SOMA_INFO.version + L("\n**Program:** ", "\n**Programa:** ") + HOST.name +
       L("\n**System:** ", "\n**Sistema:** ") + navigator.platform + L("\n**AI:** ", "\n**IA:** ") + providerLabel() +

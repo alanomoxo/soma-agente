@@ -29,15 +29,15 @@ using Microsoft.Win32;
 [assembly: AssemblyDescription("Instalador do Soma Agente, agente de IA de código aberto para programas criativos (github.com/alanomoxo/soma-agente)")]
 [assembly: AssemblyCompany("alanomoxo")]
 [assembly: AssemblyCopyright("Copyright (c) 2026 alanomoxo and the Soma Agente contributors. MIT License.")]
-[assembly: AssemblyVersion("1.7.3.0")]
-[assembly: AssemblyFileVersion("1.7.3.0")]
+[assembly: AssemblyVersion("1.7.4.0")]
+[assembly: AssemblyFileVersion("1.7.4.0")]
 
 namespace Soma
 {
     static class Paths
     {
         public const string BundleId = "com.framepilot.aeagent";
-        public const string Version = "1.7.3";
+        public const string Version = "1.7.4";
         // SOMA_TEST_ROOT redirects every write (files and registry) for testing.
         public static readonly string TestRoot = Environment.GetEnvironmentVariable("SOMA_TEST_ROOT");
         public static string Roaming { get { return TestRoot != null ? Path.Combine(TestRoot, "Roaming") : Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); } }

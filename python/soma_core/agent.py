@@ -28,7 +28,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from . import extensions, system
 from .i18n import L
 
-VERSION = "1.7.3"
+VERSION = "1.7.4"
 FEEDBACK_URL = "https://github.com/alanomoxo/soma-agente/issues/new"
 CLAUDE_EFFORTS = ["low", "medium", "high", "xhigh", "max"]
 CLAUDE_MODELS = [
