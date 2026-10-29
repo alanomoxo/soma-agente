@@ -314,6 +314,9 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/login":
             a.login()
             self._send(200, {"ok": True})
+        elif path == "/feedback":
+            a.open_feedback()
+            self._send(200, {"ok": True})
         elif path == "/check":
             a.refresh()
             self._send(200, {"ok": True})

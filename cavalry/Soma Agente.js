@@ -228,11 +228,13 @@ var status = label("", 11, C.dim);
 status.setAlignment(0);
 status.setMinimumWidth(220);
 var newChat = button();
+var feedback = button();
+feedback.setMinimumWidth(28);
 var header = new ui.HLayout();
 header.setSpaceBetween(6);
 header.add(brand, title);
 header.addStretch();
-header.add(newChat);
+header.add(feedback, newChat);
 var statusRow = new ui.HLayout();
 statusRow.setSpaceBetween(6);
 statusRow.add(dot, status);
@@ -317,6 +319,8 @@ var SUGGESTIONS = [
 function applyTexts() {
     newChat.setText(L("+ New chat", "+ Nova conversa"));
     newChat.setToolTip(L("Start a new conversation", "Começar uma nova conversa"));
+    feedback.setText("?");
+    feedback.setToolTip(L("Suggest or report a bug (opens GitHub with your version filled in)", "Sugerir ou reportar um problema (abre o GitHub com a sua versão preenchida)"));
     connect.setText(L("Connect", "Conectar"));
     send.setText(state && state.busy ? L("Stop", "Parar") : L("Send", "Enviar"));
     send.setBackgroundColor(state && state.busy ? "#5a2a30" : C.pink);
@@ -485,6 +489,7 @@ provider.onValueChanged = function () { if (rendering) { return; } hubPost("/cav
 model.onValueChanged = function () { if (rendering) { return; } if (state && state.models[model.getValue()]) { hubPost("/cavalry/model", { model: state.models[model.getValue()].id }); } };
 language.onValueChanged = function () { if (rendering) { return; } hubPost("/cavalry/language", { language: ["auto", "pt", "en"][language.getValue()] }); };
 newChat.onClick = function () { hubPost("/cavalry/new"); };
+feedback.onClick = function () { hubPost("/cavalry/feedback"); };
 connect.onClick = function () { hubPost("/cavalry/login"); };
 noticeYes.onClick = function () { if (noticeAction) { noticeAction(); } };
 noticeNo.onClick = function () { if (noticeReject) { noticeReject(); } };

@@ -66,6 +66,7 @@
     <select id="model" title="Model"></select>
     <select id="effort" title="Reasoning"></select>
     <button class="ghost" id="newChat" title="New chat">New</button>
+    <button class="ghost" id="feedback" title="Suggest or report a bug">?</button>
     <select id="language" title="Language"><option value="auto">Auto</option><option value="pt">PT</option><option value="en">EN</option></select>
   </div>
   <div class="status" id="status"><span class="dot"></span><span id="statusText">Connecting to Soma…</span><button class="ghost" id="connect" hidden>Connect</button></div>
@@ -124,6 +125,7 @@
     el("newChat").title = L("New chat", "Nova conversa");
     el("newChat").textContent = L("+ New chat", "+ Nova conversa");
     el("language").title = L("Language", "Idioma");
+    el("feedback").title = L("Suggest or report a bug (opens GitHub)", "Sugerir ou reportar um problema (abre o GitHub)");
     el("connect").textContent = L("Connect", "Conectar");
     el("offline").textContent = L("Soma Agente is not running on this computer. It starts automatically when you log in to Windows; you can also open “Soma Hub” from the Start menu. This panel reconnects by itself.", "O Soma Agente não está rodando neste computador. Ele inicia sozinho quando você entra no Windows; você também pode abrir o “Soma Hub” no menu Iniciar. Este painel reconecta sozinho.");
     el("prompt").placeholder = L("Message Soma Agente", "Mensagem para o Soma Agente");
@@ -237,6 +239,7 @@
   el("model").onchange = function () { post("/model", { model: el("model").value }); };
   el("effort").onchange = function () { post("/effort", { effort: el("effort").value }); };
   el("newChat").onclick = function () { post("/new"); };
+  el("feedback").onclick = function () { post("/feedback"); };
   el("language").onchange = function () { post("/language", { language: el("language").value }); };
   el("connect").onclick = function () { post("/login"); };
   el("attach").onclick = function () { el("file").click(); };

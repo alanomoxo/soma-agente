@@ -279,6 +279,17 @@ class SOMA_OT_suggest(Operator):
         return {"FINISHED"}
 
 
+class SOMA_OT_feedback(Operator):
+    bl_idname = "soma.feedback"
+    bl_label = "Suggest or report a bug"
+    bl_description = "Open a GitHub issue with your Soma version filled in"
+    description = _tip("Open a GitHub issue with your Soma version filled in", "Abrir uma issue no GitHub com a sua versão do Soma já preenchida")
+
+    def execute(self, context):
+        agent().open_feedback()
+        return {"FINISHED"}
+
+
 class SOMA_OT_open_chat(Operator):
     bl_idname = "soma.open_chat"
     bl_label = "Full chat as text"
@@ -514,9 +525,10 @@ class SOMA_PT_options(Panel):
         col.operator("soma.open_chat", text=L("Full chat as text", "Conversa completa em texto"), icon="TEXT")
         col.operator("soma.update", text=L("Check for updates", "Verificar atualizações"), icon="FILE_REFRESH").check_only = True
         col.operator("soma.connect", text=L("Sign in again", "Entrar de novo"), icon="URL")
+        layout.operator("soma.feedback", text=L("Suggest or report a bug", "Sugerir ou reportar um problema"), icon="HELP")
 
 CLASSES = (SomaAttachment, SOMA_OT_approve, SOMA_OT_send, SOMA_OT_stop, SOMA_OT_new_chat, SOMA_OT_connect, SOMA_OT_check,
-           SOMA_OT_attach, SOMA_OT_clear_attachments, SOMA_OT_open_chat, SOMA_OT_update, SOMA_OT_suggest, SOMA_PT_chat, SOMA_PT_options)
+           SOMA_OT_attach, SOMA_OT_clear_attachments, SOMA_OT_open_chat, SOMA_OT_update, SOMA_OT_suggest, SOMA_OT_feedback, SOMA_PT_chat, SOMA_PT_options)
 
 
 def register():

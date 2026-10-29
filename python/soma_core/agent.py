@@ -15,11 +15,13 @@ Host interface (duck-typed):
 import base64
 import json
 import os
+import platform
 import queue
 import secrets
 import subprocess
 import threading
 import time
+import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -27,6 +29,7 @@ from . import extensions, system
 from .i18n import L
 
 VERSION = "1.7.2"
+FEEDBACK_URL = "https://github.com/alanomoxo/soma-agente/issues/new"
 CLAUDE_EFFORTS = ["low", "medium", "high", "xhigh", "max"]
 CLAUDE_MODELS = [
     {"id": "default", "model": None, "name": "Claude (default)", "efforts": [], "effort": None},
@@ -59,6 +62,15 @@ def codex_models():
     except (OSError, ValueError):
         pass
     return models
+
+
+
+def feedback_url(program, ai=""):
+    """New-issue link for suggestions and bug reports, with what the person is running."""
+    body = L("**Version:** %s\n**Program:** %s\n**System:** %s\n**AI:** %s\n\n**What happened, or what do you suggest?**\n\n",
+             "**Versão:** %s\n**Programa:** %s\n**Sistema:** %s\n**IA:** %s\n\n**O que aconteceu ou o que você sugere?**\n\n") % (
+        VERSION, program, platform.platform(terse=True), ai or "-")
+    return FEEDBACK_URL + "?" + urllib.parse.urlencode({"title": "[%s %s] " % (program, VERSION), "body": body})
 
 
 class Settings:
@@ -418,6 +430,10 @@ class Agent:
             self.add_message("status", L("Switched to %s — the conversation continues.", "Trocado para o %s — a conversa continua.") % self.provider_name)
         self.set_status(L("Starting %s…", "Iniciando o %s…") % self.provider_name)
         self.refresh()
+
+    def open_feedback(self):
+        """A new GitHub issue prefilled with the version, program, system and AI."""
+        system.open_url(feedback_url(self.host.name, self.provider_name))
 
     def login(self):
         if not self.binary:

@@ -43,6 +43,7 @@ except Exception:  # noqa: BLE001 - shown in the dialog instead of a silent miss
 PLUGIN_ID = 1990421
 
 ID_PROVIDER, ID_MODEL, ID_EFFORT, ID_STATUS, ID_CONNECT, ID_CHECK = 1001, 1002, 1003, 1004, 1005, 1006
+ID_FEEDBACK = 1030
 ID_LOG, ID_PROMPT, ID_SEND, ID_STOP, ID_ATTACH, ID_CLEAR, ID_NEW, ID_ATTACHED = 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017
 ID_LANGUAGE = 1018
 LANGUAGES = ["auto", "pt", "en"]
@@ -83,10 +84,11 @@ class SomaDialog(gui.GeDialog):
         self.AddComboBox(ID_EFFORT, c4d.BFH_SCALEFIT)
         self.GroupEnd()
 
-        self.GroupBegin(0, c4d.BFH_SCALEFIT, cols=3)
+        self.GroupBegin(0, c4d.BFH_SCALEFIT, cols=4)
         self.AddStaticText(ID_STATUS, c4d.BFH_SCALEFIT, name=L("Starting…", "Iniciando…"))
         self.AddButton(ID_CONNECT, c4d.BFH_RIGHT, name="Connect")
         self.AddButton(ID_CHECK, c4d.BFH_RIGHT, name="Check")
+        self.AddButton(ID_FEEDBACK, c4d.BFH_RIGHT, name="Feedback")
         self.GroupEnd()
 
         self.AddMultiLineEditText(ID_LOG, c4d.BFH_SCALEFIT | c4d.BFV_SCALEFIT, initw=360, inith=380,
@@ -118,7 +120,7 @@ class SomaDialog(gui.GeDialog):
         """Button captions in the current language (also after switching it)."""
         for cid, en, pt in ((ID_CONNECT, "Connect", "Conectar"), (ID_CHECK, "Check", "Verificar"), (ID_SEND, "Send", "Enviar"),
                             (ID_STOP, "Stop", "Parar"), (ID_ATTACH, "Attach image", "Anexar imagem"), (ID_CLEAR, "Clear", "Limpar"),
-                            (ID_NEW, "New chat", "Nova conversa")):
+                            (ID_NEW, "New chat", "Nova conversa"), (ID_FEEDBACK, "Suggest / report bug", "Sugerir / reportar bug")):
             self.SetString(cid, L(en, pt))
         if not LOAD_ERROR:
             self.SetInt32(ID_LANGUAGE, LANGUAGES.index(i18n.choice()))
@@ -240,6 +242,8 @@ class SomaDialog(gui.GeDialog):
         elif cid == ID_CHECK:
             a.refresh()
             threading.Thread(target=lambda: a.check_update(True), daemon=True).start()
+        elif cid == ID_FEEDBACK:
+            a.open_feedback()
         elif cid == ID_SEND:
             if a.send(self.GetString(ID_PROMPT), self.attachments):
                 self.SetString(ID_PROMPT, "")

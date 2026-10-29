@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.7.3
+- Botão "Sugerir ou reportar um problema" em todos os painéis: abre uma issue no GitHub já preenchida com a versão do Soma, o programa, o sistema e a IA em uso. No painel Adobe fica em Configurações > Agente; no Blender, em Opções; no Cinema 4D, ao lado de Verificar; no Cavalry e no Figma, no botão "?" do topo.
+
 ## 1.7.2
 - Cavalry: acabamento do painel — botões e menus arredondados sem borda, fundo mais escuro, status alinhado, avisos ocupando a largura toda e sugestões centralizadas.
 
