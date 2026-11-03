@@ -63,7 +63,7 @@ Onde abrir depois:
 Passo a passo completo: [`installer/COMO-INSTALAR.txt`](installer/COMO-INSTALAR.txt).
 
 ### Mac
-Baixe `Soma-Agente-Mac.zip` na Release. O painel Adobe tem instalador (`Instalar-macOS.command`); Blender, Cinema 4D e Figma são copiados à mão (instruções no zip).
+Baixe `Soma-Agente-Mac.zip` na Release, abra e clique com o botão direito em **Instalar Soma Agente.command > Abrir**. O instalador mostra os programas encontrados no Mac (Adobe, Blender, Cinema 4D, Figma e Cavalry), instala os escolhidos, liga o add-on do Blender, inicia o Soma Hub com o Mac e diz onde abrir o Soma em cada programa. Também desinstala, guardando backups. Figma e Cavalry precisam do Python 3 (python.org).
 
 ## Atualizações automáticas
 

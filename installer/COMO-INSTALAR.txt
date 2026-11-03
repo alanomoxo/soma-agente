@@ -63,19 +63,13 @@ aprova (painel Adobe: aba Skills ou a barra no chat; Blender: quadro no
 painel; Cinema 4D: janela de pergunta; Figma: botões no plugin).
 
 MAC
-Abra Soma-Agente-Mac.zip. Dentro há:
-- "Soma Agente" (After Effects, Photoshop, Illustrator, Premiere):
-  pasta scripts > botão direito em Instalar-macOS.command > Abrir > Abrir,
-  e aperte Return.
-- "Blender": copie a pasta soma_agente para
-  ~/Library/Application Support/Blender/<versão>/scripts/addons e ligue o
-  add-on em Edit > Preferences > Add-ons.
-- "Cinema 4D": copie a pasta soma_agente para a pasta plugins das
-  preferências do C4D (Edit > Preferences > botão "Open Preferences Folder").
-- "Figma": precisa do python3 do Mac. Rode no Terminal:
-  python3 "<pasta>/Figma/bridge/soma_figma_bridge.py"
-  e importe Figma/plugin/manifest.json como no Windows.
-(No Mac, só o painel Adobe tem instalador automático.)
+Abra Soma-Agente-Mac.zip e, na pasta que aparecer, clique com o botão
+direito em "Instalar Soma Agente.command" > Abrir > Abrir. Siga as
+janelas: os programas do seu Mac já vêm marcados (After Effects,
+Photoshop, Illustrator, Premiere Pro, Blender, Cinema 4D, Figma e
+Cavalry). Se o Mac não deixar abrir: Ajustes do Sistema > Privacidade e
+Segurança > "Abrir Mesmo Assim". Figma e Cavalry precisam do Python 3
+(python.org); o instalador avisa se faltar. Detalhes no LEIA-ME do zip.
 
 ATUALIZAR OU DESINSTALAR
 - Para atualizar, rode o instalador novo: as versões anteriores são

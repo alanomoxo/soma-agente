@@ -102,14 +102,21 @@ $hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLower()
 [IO.File]::WriteAllText("$exe.sha256", "$hash  Soma-Agente-Instalador.exe`n")
 
 # Mac bundle: Adobe panel (with its installer script), Blender, Cinema 4D, Figma.
+# Mac: "Instalar Soma Agente.command" and LEIA-ME at the top, the program files in Arquivos\.
 $mac = Join-Path $stage "mac"
-New-Item -ItemType Directory (Join-Path $mac "Blender"), (Join-Path $mac "Cinema 4D") | Out-Null
-Copy-Item (Join-Path $root "adobe") (Join-Path $mac "Soma Agente") -Recurse
-Copy-Item (Join-Path $stage "blender") (Join-Path $mac "Blender\soma_agente") -Recurse
-Copy-Item (Join-Path $stage "c4d") (Join-Path $mac "Cinema 4D\soma_agente") -Recurse
-New-Item -ItemType Directory (Join-Path $mac "Cavalry") | Out-Null
-Copy-Item (Join-Path $root "cavalry\Soma Agente.js") (Join-Path $mac "Cavalry")
-Copy-Item $figma (Join-Path $mac "Figma") -Recurse
+$files = Join-Path $mac "Arquivos"
+New-Item -ItemType Directory (Join-Path $files "Blender"), (Join-Path $files "Cinema 4D"), (Join-Path $files "Cavalry") | Out-Null
+Copy-Item (Join-Path $root "adobe") (Join-Path $files "Adobe") -Recurse
+Copy-Item (Join-Path $stage "blender") (Join-Path $files "Blender\soma_agente") -Recurse
+Copy-Item (Join-Path $stage "c4d") (Join-Path $files "Cinema 4D\soma_agente") -Recurse
+Copy-Item (Join-Path $root "cavalry\Soma Agente.js") (Join-Path $files "Cavalry")
+Copy-Item $figma (Join-Path $files "Figma") -Recurse
+$version = [regex]::Match([IO.File]::ReadAllText((Join-Path $root "python\soma_core\agent.py")), 'VERSION = "([\d.]+)"').Groups[1].Value
+[IO.File]::WriteAllText((Join-Path $files "VERSION"), $version)
+# macOS runs the installer with bash: Unix line endings whatever git checked out.
+$command = [IO.File]::ReadAllText((Join-Path $root "installer\mac\Instalar Soma Agente.command")).Replace("`r`n", "`n")
+[IO.File]::WriteAllText((Join-Path $mac "Instalar Soma Agente.command"), $command, (New-Object Text.UTF8Encoding $false))
+Copy-Item (Join-Path $root "installer\mac\LEIA-ME.txt") $mac
 $macZip = Join-Path $out "Soma-Agente-Mac.zip"
 New-Zip $macZip $mac ""
 # Mark entries as made on Unix so macOS keeps the scripts executable.

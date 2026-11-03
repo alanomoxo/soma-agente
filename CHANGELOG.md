@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.7.5
+- Mac: instalador de dois cliques ("Instalar Soma Agente.command") com janelas do macOS em português ou inglês. Ele lista os programas encontrados (After Effects, Photoshop, Illustrator, Premiere Pro, Blender, Cinema 4D, Figma e Cavalry), instala os escolhidos, liga o add-on do Blender, inicia o Soma Hub junto com o Mac, copia o caminho do plugin do Figma e mostra onde abrir o Soma em cada programa. Também desinstala, guardando backups, e o zip traz um LEIA-ME curto.
+
 ## 1.7.4
 - After Effects: o Ctrl+Z volta o trabalho da IA passo a passo. A IA faz uma camada, animação ou efeito por vez, e cada passo aparece no menu Editar com o nome do que fez (por exemplo "Desfazer Soma: Cria o título").
 - Painel Adobe: botão "Desfazer o último passo" ao lado de "Desfazer a última execução".

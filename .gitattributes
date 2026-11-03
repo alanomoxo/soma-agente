@@ -1,0 +1,3 @@
+# Scripts that run on macOS must keep Unix line endings.
+*.command text eol=lf
+*.sh text eol=lf

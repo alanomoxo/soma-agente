@@ -1,0 +1,46 @@
+SOMA AGENTE PARA MAC
+====================
+
+INSTALAR (2 minutos)
+1. Feche os programas onde você quer o Soma (After Effects, Photoshop,
+   Illustrator, Premiere Pro, Blender, Cinema 4D, Figma, Cavalry).
+2. Clique com o botão direito em "Instalar Soma Agente.command" e escolha
+   "Abrir". Na janela que aparece, clique em "Abrir" de novo.
+3. Siga as janelas: escolha os programas (os que estão no seu Mac já vêm
+   marcados) e clique em Instalar. No fim, o instalador diz onde abrir o
+   Soma em cada programa.
+
+SE O MAC NÃO DEIXAR ABRIR
+O aviso "não é possível verificar o desenvolvedor" é normal para programas
+gratuitos sem certificado pago da Apple. Para continuar:
+Ajustes do Sistema > Privacidade e Segurança > role até o fim e clique em
+"Abrir Mesmo Assim" ao lado de "Instalar Soma Agente.command". Depois abra
+o instalador de novo.
+
+PRIMEIRO USO
+Abra o painel do Soma no programa, escolha a IA (Claude, ChatGPT ou
+Antigravity) e clique em Conectar para entrar na sua conta.
+
+FIGMA E CAVALRY
+Precisam do Python 3. Se o seu Mac não tiver, o instalador avisa e abre a
+página de download (python.org); depois de instalar, rode o instalador de
+novo. No Figma, importe o plugin uma vez: Plugins > Development > Import
+plugin from manifest… (o instalador já copia o caminho; cole com Cmd+V).
+
+ATUALIZAR OU DESINSTALAR
+Para atualizar, baixe a versão nova em
+github.com/alanomoxo/soma-agente/releases e rode o instalador de novo.
+Para desinstalar, abra o instalador e clique em "Desinstalar". Nada é
+apagado: as versões anteriores ficam em
+~/Library/Application Support/AE Agent/backups.
+
+-----------------------------------------------------------------------
+ENGLISH
+1. Close the programs where you want Soma.
+2. Right-click "Instalar Soma Agente.command" and choose Open, then Open
+   again. If macOS refuses, go to System Settings > Privacy & Security and
+   click "Open Anyway", then open it again.
+3. Follow the windows: pick the programs and click Install. The installer
+   follows your Mac's language.
+Figma and Cavalry need Python 3 (python.org). To update, run the new
+installer; to remove, open it and click Uninstall (files go to backups).
