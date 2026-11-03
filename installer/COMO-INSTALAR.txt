@@ -20,6 +20,15 @@ WINDOWS
 3) Marque os programas onde quer o Soma (os encontrados já vêm marcados)
    e clique em Instalar. Não precisa ser administrador.
 
+O INSTALADOR SUMIU DEPOIS DE ABRIR?
+É o antivírus colocando o arquivo em quarentena (falso positivo).
+- Recuperar: Segurança do Windows > Proteção contra vírus e ameaças >
+  Histórico de proteção > item do Soma > Ações > Restaurar.
+- Ou instale pelo PowerShell (menu Iniciar > PowerShell) colando:
+  irm https://raw.githubusercontent.com/alanomoxo/soma-agente/main/instalar.ps1 | iex
+  Ele baixa a versão mais nova do GitHub, confere o SHA-256 e abre o
+  instalador.
+
 ONDE ABRIR DEPOIS DE INSTALAR
 - After Effects, Photoshop, Illustrator, Premiere Pro:
   Window > Extensions > Soma Agente

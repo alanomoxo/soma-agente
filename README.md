@@ -49,6 +49,16 @@ Get-FileHash .\Soma-Agente-Instalador.exe -Algorithm SHA256
 
 O resultado deve ser igual ao do arquivo `Soma-Agente-Instalador.exe.sha256` da mesma Release. Se o seu antivírus bloquear o arquivo, abra uma *issue* informando o nome do antivírus e da detecção para enviarmos como falso positivo.
 
+#### O instalador some depois de abrir?
+É o antivírus colocando o arquivo em quarentena (falso positivo, comum em programas novos sem assinatura paga). Duas saídas:
+
+- **Recuperar o arquivo:** Segurança do Windows > Proteção contra vírus e ameaças > **Histórico de proteção** > clique no item do Soma > **Ações > Restaurar** (ou **Permitir no dispositivo**). Depois abra o instalador de novo.
+- **Instalar pelo PowerShell:** abra o PowerShell (menu Iniciar > digite PowerShell) e cole o comando abaixo. Ele baixa a versão mais nova daqui do GitHub, confere o SHA-256 e abre o instalador.
+
+```powershell
+irm https://raw.githubusercontent.com/alanomoxo/soma-agente/main/instalar.ps1 | iex
+```
+
 Onde abrir depois:
 
 | Programa | Onde |
