@@ -8,9 +8,11 @@ import json
 import os
 import subprocess
 import sys
+import time
 
 WINDOWS = sys.platform == "win32"
 HOME = os.path.expanduser("~")
+_SHELL_PATH = []
 
 
 def data_directory():
@@ -43,11 +45,38 @@ def _saved(name):
         return None
 
 
+def _login_shell_path():
+    """macOS: the PATH of the user's login shell, once. Apps opened from the Dock (and
+    LaunchAgents like the Soma Hub) get a minimal PATH without Homebrew, nvm, volta or bun."""
+    if WINDOWS:
+        return []
+    if not _SHELL_PATH:
+        _SHELL_PATH.append("")  # asked already, even if the shell fails
+        shell = os.environ.get("SHELL") if os.environ.get("SHELL", "").endswith(("/zsh", "/bash")) else "/bin/zsh"
+        try:
+            out = subprocess.run([shell, "-ilc", "printf '<<SOMA>>%s<<SOMA>>' \"$PATH\""], capture_output=True, text=True, timeout=6,
+                                 stdin=subprocess.DEVNULL).stdout
+        except (OSError, subprocess.SubprocessError):
+            out = ""
+        parts = out.split("<<SOMA>>")
+        if len(parts) >= 3:
+            _SHELL_PATH.extend(d for d in parts[1].split(":") if d)
+    return [d for d in _SHELL_PATH if d]
+
+
+def _mac_dirs():
+    return ["/opt/homebrew/bin", "/usr/local/bin", os.path.join(HOME, ".local", "bin"), os.path.join(HOME, ".npm-global", "bin"),
+            os.path.join(HOME, ".volta", "bin"), os.path.join(HOME, ".bun", "bin")]
+
+
 def _path_dirs():
     """PATH of this process plus, on Windows, the saved user and machine PATH
-    (a CLI installed after login is not yet in the inherited PATH)."""
+    (a CLI installed after login is not yet in the inherited PATH) and, on macOS,
+    the login shell's PATH and the usual install folders."""
     sep = ";" if WINDOWS else ":"
     values = [os.environ.get("PATH", "")]
+    if not WINDOWS:
+        values.append(sep.join(_login_shell_path() + _mac_dirs()))
     if WINDOWS:
         import winreg
         for hive, key in ((winreg.HKEY_CURRENT_USER, "Environment"),
@@ -84,7 +113,8 @@ def _in_node_modules(scope, exe):
         shim = os.path.splitext(exe)[0] + ".cmd"
         roots += [d for d in _path_dirs() if os.path.isfile(os.path.join(d, shim))]
     else:
-        roots = ["/opt/homebrew/lib", "/usr/local/lib", os.path.join(HOME, ".npm-global", "lib")]
+        # <prefix>/bin on the PATH has its global packages in <prefix>/lib (Homebrew, nvm, volta…).
+        roots = [os.path.join(os.path.dirname(d), "lib") for d in _path_dirs() if d.endswith("/bin")]
     found = []
     for root in roots:
         modules = [os.path.join(root, "node_modules")] + glob.glob(os.path.join(root, "global", "*", "node_modules"))
@@ -164,6 +194,8 @@ def find_agy():
         local = os.environ.get("LOCALAPPDATA") or os.path.join(HOME, "AppData", "Local")
         candidates.append(os.path.join(local, "agy", "bin", exe))
         candidates.append(os.path.join(local, "Programs", "Antigravity", "bin", exe))
+    else:
+        candidates += ["/opt/homebrew/bin/agy", "/usr/local/bin/agy"]
     candidates.append(os.path.join(HOME, ".local", "bin", exe))
     candidates += _on_path(exe)
     for candidate in candidates:
@@ -244,7 +276,8 @@ def environment(binary):
     sep = ";" if WINDOWS else ":"
     entries = [os.path.dirname(binary)]
     if not WINDOWS:
-        entries += ["/usr/local/bin", "/opt/homebrew/bin", os.path.join(HOME, ".local", "bin"), "/usr/bin", "/bin"]
+        # The login shell's PATH first, so a CLI installed with npm finds its node.
+        entries += [d for d in _login_shell_path() + _mac_dirs() + ["/usr/bin", "/bin", "/usr/sbin", "/sbin"] if d not in entries]
     for item in env.get("PATH", "").split(sep):
         if item and item not in entries:
             entries.append(item)
@@ -270,12 +303,41 @@ def open_url(url):
 
 
 INSTALL_SCRIPTS = {"claude": "https://claude.ai/install.ps1", "antigravity": "https://antigravity.google/cli/install.ps1"}
+INSTALL_SCRIPTS_MAC = {"claude": "https://claude.ai/install.sh", "antigravity": "https://antigravity.google/cli/install.sh"}
+
+
+class _Finished:
+    """wait() for an installer running in Terminal: it touches a marker file when done."""
+    def __init__(self, marker):
+        self.marker = marker
+
+    def wait(self):
+        deadline = time.time() + 20 * 60
+        while time.time() < deadline and not os.path.exists(self.marker):
+            time.sleep(2)
 
 
 def install_cli(provider, done_text):
-    """Runs the official installer of Claude Code or the Antigravity CLI in a
-    visible PowerShell window. Returns the process, or None when not on Windows."""
-    if not WINDOWS or provider not in INSTALL_SCRIPTS:
+    """Runs the official installer of Claude Code or the Antigravity CLI in a visible
+    window (PowerShell on Windows, Terminal on macOS). Returns something with wait(),
+    or None when there is no installer for it."""
+    if not WINDOWS:
+        if provider not in INSTALL_SCRIPTS_MAC:
+            return None
+        # Opening a .command file starts Terminal without an Automation permission prompt.
+        marker = os.path.join(data_directory(), provider + "-install.done")
+        script = os.path.join(data_directory(), provider + "-install.command")
+        try:
+            os.remove(marker)
+        except OSError:
+            pass
+        quote = lambda text: "'" + text.replace("'", "'\\''") + "'"
+        with open(script, "w", encoding="utf-8") as handle:
+            handle.write("#!/bin/bash\ncurl -fsSL %s | bash\necho\necho %s\ntouch %s\nsleep 6\n" % (INSTALL_SCRIPTS_MAC[provider], quote(done_text), quote(marker)))
+        os.chmod(script, 0o755)
+        subprocess.Popen(["open", "-a", "Terminal", script])
+        return _Finished(marker)
+    if provider not in INSTALL_SCRIPTS:
         return None
     command = "irm %s | iex; Write-Host ''; Write-Host '%s'; Start-Sleep -Seconds 6" % (INSTALL_SCRIPTS[provider], done_text.replace("'", "''"))
     return subprocess.Popen(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command],

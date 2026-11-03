@@ -195,32 +195,115 @@
     return commandModifier && (key === "z" || key === "y");
   }
 
-  function blockHostUndoShortcuts() {
-    // CEP normally forwards unclaimed panel key events to After Effects. Register
-    // both platform key-code variants so an accidental Undo/Redo remains inside
-    // the panel instead of reverting an agent-created project change.
-    if (cep && typeof cep.registerKeyEventsInterest === "function") {
-      try {
-        cep.registerKeyEventsInterest(JSON.stringify([
-          { keyCode: 6, metaKey: true },
-          { keyCode: 6, metaKey: true, shiftKey: true },
-          { keyCode: 16, metaKey: true, shiftKey: true },
-          { keyCode: 90, ctrlKey: true },
-          { keyCode: 90, ctrlKey: true, shiftKey: true },
-          { keyCode: 89, ctrlKey: true }
-        ]));
-      } catch (error) {
-        // The DOM guard below still protects focused controls on older CEP hosts.
+  // CEP sends every key the panel has not claimed to the host app. Undo/Redo are
+  // always claimed (an accidental Undo would revert the agent's work). On the Mac
+  // all keys are also claimed while a text field has focus, or Space would play
+  // the timeline and Cmd+C/V would copy layers instead of text.
+  var IS_MAC = /^Mac/i.test(navigator.platform || "");
+  var UNDO_KEYS = [
+    { keyCode: 6, metaKey: true },
+    { keyCode: 6, metaKey: true, shiftKey: true },
+    { keyCode: 16, metaKey: true, shiftKey: true },
+    { keyCode: 90, ctrlKey: true },
+    { keyCode: 90, ctrlKey: true, shiftKey: true },
+    { keyCode: 89, ctrlKey: true }
+  ];
+  var TYPING_MODIFIERS = [{}, { shiftKey: true }, { metaKey: true }, { metaKey: true, shiftKey: true }, { altKey: true }, { altKey: true, shiftKey: true }, { ctrlKey: true }];
+  var typingKeys = null;
+  var claimedTyping = null;
+
+  function isTextField(element) {
+    if (!element) { return false; }
+    if (element.tagName === "TEXTAREA" || element.isContentEditable) { return true; }
+    return element.tagName === "INPUT" && /^(text|search|url|email|password|number|tel)?$/i.test(element.type || "");
+  }
+
+  function claimKeys(typing) {
+    typing = typing && IS_MAC;
+    if (!cep || typeof cep.registerKeyEventsInterest !== "function" || claimedTyping === typing) { return; }
+    claimedTyping = typing;
+    var keys = UNDO_KEYS;
+    if (typing) {
+      if (!typingKeys) {
+        // macOS virtual key codes 0-127 cover letters, digits, Space, Delete, Return and the arrows.
+        typingKeys = [];
+        for (var code = 0; code < 128; code += 1) {
+          TYPING_MODIFIERS.forEach(function (modifiers) {
+            var key = { keyCode: code };
+            Object.keys(modifiers).forEach(function (name) { key[name] = modifiers[name]; });
+            typingKeys.push(key);
+          });
+        }
       }
+      keys = UNDO_KEYS.concat(typingKeys);
     }
+    try {
+      cep.registerKeyEventsInterest(JSON.stringify(keys));
+    } catch (error) {
+      // The DOM guard below still protects focused controls on older CEP hosts.
+    }
+  }
+
+  function selectedText(field) {
+    if (typeof field.selectionStart === "number") { return field.value.substring(field.selectionStart, field.selectionEnd); }
+    return String(window.getSelection() || "");
+  }
+
+  // The Mac's Cmd+C/V/X/A come from the host app's Edit menu, so the panel does them itself
+  // (the Mac clipboard through pbcopy/pbpaste when the browser commands are refused).
+  function macEditShortcut(event) {
+    var field = event.target;
+    if (!IS_MAC || !event.metaKey || event.ctrlKey || event.altKey || !isTextField(field)) { return false; }
+    var key = String(event.key || "").toLowerCase();
+    if (key === "a") {
+      if (typeof field.select === "function") { field.select(); } else { document.execCommand("selectAll"); }
+      return true;
+    }
+    if (key === "c" || key === "x") {
+      var text = selectedText(field);
+      if (text && !document.execCommand(key === "c" ? "copy" : "cut") && node.childProcess) {
+        try { node.childProcess.execSync("pbcopy", { input: text }); } catch (error) { return true; }
+        if (key === "x") { document.execCommand("delete"); }
+      }
+      return true;
+    }
+    if (key === "v") {
+      if (!document.execCommand("paste") && node.childProcess) {
+        try {
+          var pasted = node.childProcess.execSync("pbpaste", { encoding: "utf8" });
+          if (pasted) { document.execCommand("insertText", false, pasted); }
+        } catch (error) {
+          // Nothing to paste.
+        }
+      }
+      return true;
+    }
+    return false;
+  }
+
+  function guardKeys() {
+    claimKeys(false);
+    document.addEventListener("focusin", function (event) { claimKeys(isTextField(event.target)); });
+    document.addEventListener("focusout", function () {
+      setTimeout(function () { claimKeys(isTextField(document.activeElement)); }, 0);
+    });
     document.addEventListener("keydown", function (event) {
+      if (macEditShortcut(event)) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
       if (!isUndoOrRedoShortcut(event)) { return; }
       event.preventDefault();
       event.stopImmediatePropagation();
+      // Inside a text field, Undo/Redo stay the text's own; elsewhere they never reach the host.
+      if (isTextField(event.target)) {
+        document.execCommand(event.shiftKey || String(event.key).toLowerCase() === "y" ? "redo" : "undo");
+      }
     }, true);
   }
 
-  blockHostUndoShortcuts();
+  guardKeys();
 
   function initializeLibrary() {
     var adapter;
@@ -658,7 +741,8 @@
     bar.appendChild(text);
     var actions = document.createElement("div");
     actions.className = "ext-actions";
-    var buttons = update.requested ? [] : [{ label: L("Update now", "Atualizar agora"), primary: true, run: installUpdate }];
+    // The Mac has no automatic install: the button opens the download page.
+    var buttons = update.requested ? [] : [{ label: IS_MAC ? L("Download update", "Baixar atualização") : L("Update now", "Atualizar agora"), primary: true, run: installUpdate }];
     buttons.push({ label: L("Later", "Depois"), run: function () { dismissedUpdate = update.latest + (update.requested ? "+" : ""); bar.hidden = true; } });
     buttons.forEach(function (b) {
       var button = document.createElement("button");
@@ -673,14 +757,14 @@
 
   function checkHubUpdate(force) {
     if (!extensions || (isBusy && !force)) { return; }
-    extensions.hubUpdate("check", force === true).then(showUpdate, function (error) {
+    extensions.hubUpdate("check", force === true, SOMA_INFO.version).then(showUpdate, function (error) {
       if (force === true) { document.getElementById("updateStatus").textContent = error.message; }
     });
   }
 
   function installUpdate() {
     if (!extensions) { return; }
-    extensions.hubUpdate("install").then(showUpdate, function (error) { showBanner(error.message); });
+    extensions.hubUpdate("install", false, SOMA_INFO.version).then(showUpdate, function (error) { showBanner(error.message); });
   }
 
   // Tells the local Soma Hub where this program's tools are, so an outside
@@ -704,7 +788,7 @@
     if (this.ready) { return Promise.resolve(); }
     this.binary = window.AEPlatform.findClaudeBinary(node);
     if (!this.binary) {
-      return Promise.reject(new Error("Claude Code was not found. Install the Claude desktop app or the Claude Code CLI, or save the full path of claude.exe in claude-path.txt inside " + claudeDataDirectory() + "."));
+      return Promise.reject(new Error("Claude Code was not found. Install the Claude desktop app or the Claude Code CLI, or save the full path of " + (window.AEPlatform.windows(node) ? "claude.exe" : "claude") + " in claude-path.txt inside " + claudeDataDirectory() + "."));
     }
     return new Promise(function (resolve, reject) {
       node.childProcess.execFile(self.binary, ["--version"], { timeout: 20000, windowsHide: true, env: window.AEPlatform.environment(node, self.binary) }, function (error, stdout, stderr) {
@@ -938,7 +1022,7 @@
     if (this.ready) { return Promise.resolve(); }
     this.binary = window.AEPlatform.findCodexBinary(node);
     if (!this.binary) {
-      return Promise.reject(new Error("Codex (ChatGPT) was not found. Install the Codex app (chatgpt.com/codex) or the Codex CLI, or save the full path of codex.exe in codex-path.txt inside " + claudeDataDirectory() + "."));
+      return Promise.reject(new Error("Codex (ChatGPT) was not found. Install the Codex app (chatgpt.com/codex) or the Codex CLI, or save the full path of " + (window.AEPlatform.windows(node) ? "codex.exe" : "codex") + " in codex-path.txt inside " + claudeDataDirectory() + "."));
     }
     return new Promise(function (resolve, reject) {
       node.childProcess.execFile(self.binary, ["--version"], { timeout: 20000, windowsHide: true, env: window.AEPlatform.environment(node, self.binary) }, function (error, stdout, stderr) {
@@ -1152,7 +1236,7 @@
     if (this.ready) { return Promise.resolve(); }
     this.binary = window.AEPlatform.findAgyBinary(node);
     if (!this.binary) {
-      return Promise.reject(new Error("The Antigravity CLI (agy) was not found. Install it from antigravity.google (Getting started > CLI), or save the full path of agy.exe in agy-path.txt inside " + claudeDataDirectory() + "."));
+      return Promise.reject(new Error("The Antigravity CLI (agy) was not found. Install it from antigravity.google (Getting started > CLI), or save the full path of " + (window.AEPlatform.windows(node) ? "agy.exe" : "agy") + " in agy-path.txt inside " + claudeDataDirectory() + "."));
     }
     return new Promise(function (resolve) {
       node.childProcess.execFile(self.binary, ["--version"], { timeout: 20000, windowsHide: true, env: window.AEPlatform.environment(node, self.binary) }, function (error, stdout) {
@@ -1306,6 +1390,7 @@
 
   // New GitHub issue for suggestions and bug reports, prefilled with what this person runs.
   var SOMA_INFO = { title: "Soma Agente", version: "1.7.5" };
+  if (extensions) { extensions.version = SOMA_INFO.version; }
   function feedbackUrl() {
     var body = L("**Version:** ", "**Versão:** ") + SOMA_INFO.version + L("\n**Program:** ", "\n**Programa:** ") + HOST.name +
       L("\n**System:** ", "\n**Sistema:** ") + navigator.platform + L("\n**AI:** ", "\n**IA:** ") + providerLabel() +
@@ -1460,29 +1545,49 @@
   // Why the AI cannot start, in plain words. The chat apps alone are not enough:
   // Soma runs the command-line agents (Claude Code, Codex, agy).
   function missingMessage() {
-    var win = window.AEPlatform.windows(node);
     if (provider === "claude") {
       return (window.AEPlatform.hasClaudeApp(node)
         ? L("The Claude app is installed, but Soma needs Claude Code, which the chat app does not include. ", "O app do Claude está instalado, mas o Soma precisa do Claude Code, que não vem com o app de chat. ")
         : L("Claude Code was not found on this computer. ", "O Claude Code não foi encontrado neste computador. ")) +
-        (win ? L("Click Install Claude Code to install it, then sign in. ", "Clique em Instalar Claude Code para instalar e depois faça o login. ") : L("Install it from code.claude.com, then click Check again. ", "Instale pelo code.claude.com e clique em Verificar de novo. ")) +
+        L("Click Install Claude Code to install it, then sign in. ", "Clique em Instalar Claude Code para instalar e depois faça o login. ") +
         L("Claude Code needs a paid Claude plan (Pro or Max); the free plan does not include it.", "O Claude Code precisa de um plano pago do Claude (Pro ou Max); o plano gratuito não inclui.");
     }
     if (provider === "antigravity") {
       return (window.AEPlatform.hasAntigravityApp(node)
         ? L("The Antigravity app is installed, but Soma needs the Antigravity CLI (agy), which is installed separately. ", "O app do Antigravity está instalado, mas o Soma precisa da CLI do Antigravity (agy), que é instalada à parte. ")
         : L("The Antigravity CLI (agy) was not found on this computer. ", "A CLI do Antigravity (agy) não foi encontrada neste computador. ")) +
-        (win ? L("Click Install Antigravity CLI; it uses the same Google login as the app.", "Clique em Instalar CLI do Antigravity; ela usa o mesmo login Google do app.") : L("Install it from antigravity.google, then click Check again.", "Instale pelo antigravity.google e clique em Verificar de novo."));
+        L("Click Install Antigravity CLI; it uses the same Google login as the app.", "Clique em Instalar CLI do Antigravity; ela usa o mesmo login Google do app.");
     }
     return L("Codex was not found on this computer. Install the Codex app (chatgpt.com/codex) or the Codex CLI, then click Check again.", "O Codex não foi encontrado neste computador. Instale o app Codex (chatgpt.com/codex) ou a CLI do Codex e clique em Verificar de novo.");
   }
 
   // Runs the official installer of Claude Code or the Antigravity CLI in a
-  // visible PowerShell window, then checks again when it closes.
+  // visible window (PowerShell on Windows, Terminal on the Mac), then checks again.
   function installAgentCli() {
     var scripts = { claude: "https://claude.ai/install.ps1", antigravity: "https://antigravity.google/cli/install.ps1" };
-    if (!window.AEPlatform.windows(node) || !scripts[provider] || !node.childProcess) { openExternal(PROVIDERS[provider].download); return; }
+    var macScripts = { claude: "https://claude.ai/install.sh", antigravity: "https://antigravity.google/cli/install.sh" };
+    if (!scripts[provider] || !node.childProcess) { openExternal(PROVIDERS[provider].download); return; }
     var name = provider === "claude" ? "Claude Code" : "Antigravity CLI";
+    if (!window.AEPlatform.windows(node)) {
+      // Opening a .command file starts Terminal without an Automation permission prompt;
+      // the script touches a marker when done, which tells the panel to check again.
+      var dir = window.AEPlatform.dataDirectory(node);
+      var marker = node.path.join(dir, provider + "-install.done");
+      var script = node.path.join(dir, provider + "-install.command");
+      var quote = function (text) { return "'" + String(text).replace(/'/g, "'\\''") + "'"; };
+      try { node.fs.unlinkSync(marker); } catch (error) { /* first install */ }
+      node.fs.writeFileSync(script, "#!/bin/bash\ncurl -fsSL " + macScripts[provider] + " | bash\necho\necho " +
+        quote(L("Done. You can close this window; Soma checks again by itself.", "Pronto. Pode fechar esta janela; o Soma verifica de novo sozinho.")) +
+        "\ntouch " + quote(marker) + "\nsleep 6\n", { encoding: "utf8", mode: 493 });
+      node.fs.chmodSync(script, 493);
+      node.childProcess.spawn("open", ["-a", "Terminal", script], { detached: true, stdio: "ignore" }).unref();
+      showBanner(L("Installing " + name + " in the Terminal window that opened. Soma checks again when it finishes.", "Instalando o " + name + " na janela do Terminal que abriu. O Soma verifica de novo quando terminar."), "info");
+      var started = Date.now();
+      var poll = setInterval(function () {
+        if (node.fs.existsSync(marker) || Date.now() - started > 20 * 60 * 1000) { clearInterval(poll); bootstrap(); }
+      }, 2000);
+      return;
+    }
     var command = "Write-Host '" + L("Installing ", "Instalando o ") + name + "...'; irm " + scripts[provider] + " | iex; Write-Host ''; Write-Host '" +
       L("Done. This window closes in a few seconds; Soma checks again by itself.", "Pronto. Esta janela fecha em alguns segundos; o Soma verifica de novo sozinho.") + "'; Start-Sleep -Seconds 6";
     // start /wait opens a real console window and returns when it closes.

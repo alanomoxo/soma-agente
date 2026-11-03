@@ -133,6 +133,16 @@
     });
   };
 
+  // macOS refuses to run a downloaded binary that is quarantined or, on Apple chips, unsigned
+  // ("Killed: 9"). If it does not start, clear the flag and sign it locally (ad-hoc).
+  Media.prototype.allowOnMac = function (file) {
+    var cp = this.n.childProcess;
+    if (this.win || this.n.process.platform !== "darwin" || !cp) { return; }
+    if (cp.spawnSync(file, ["-version"], { timeout: 15000 }).status === 0) { return; }
+    cp.spawnSync("xattr", ["-d", "com.apple.quarantine", file]);
+    cp.spawnSync("codesign", ["--force", "--sign", "-", file], { timeout: 30000 });
+  };
+
   Media.prototype.installFfmpeg = function (onProgress) {
     var n = this.n, self = this;
     var platform = this.win ? "win32" : (n.process.platform === "darwin" ? "darwin" : n.process.platform);
@@ -149,7 +159,7 @@
         out.on("finish", function () {
           try {
             n.fs.renameSync(temp, target);
-            if (!self.win) { n.fs.chmodSync(target, 493); }
+            if (!self.win) { n.fs.chmodSync(target, 493); self.allowOnMac(target); }
             n.fs.unlinkSync(archive);
             resolve(target);
           } catch (error) { reject(error); }

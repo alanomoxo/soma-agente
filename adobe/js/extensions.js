@@ -266,9 +266,36 @@
     { name: "soma_install_update", description: "Install the latest Soma Agente now (only after the user asked for it). It installs as soon as no Adobe program is open, so tell the user to save and close them.", inputSchema: empty }
   ];
 
+  // The Mac may run without the Soma Hub (it is only needed for Figma and Cavalry):
+  // ask GitHub directly, and "install" opens the download page.
+  Extensions.prototype.githubUpdate = function (action, current) {
+    var n = this.n;
+    return new Promise(function (resolve, reject) {
+      var options = { host: "api.github.com", path: "/repos/alanomoxo/soma-agente/releases/latest", headers: { "User-Agent": "SomaAgente-Panel", Accept: "application/vnd.github+json" }, timeout: 30000 };
+      var req = n.https.get(options, function (res) {
+        var chunks = [];
+        res.on("data", function (chunk) { chunks.push(chunk); });
+        res.on("end", function () {
+          try {
+            var release = JSON.parse(n.Buffer.concat(chunks).toString("utf8"));
+            var latest = String(release.tag_name || "").replace(/^v/i, "");
+            var have = String(current).split(".");
+            var newer = latest.split(".").reduce(function (result, part, i) { return result || (Number(part) || 0) - (Number(have[i]) || 0); }, 0) > 0;
+            if (action === "install" && newer) { n.childProcess.spawn("open", ["https://github.com/alanomoxo/soma-agente/releases/latest"], { detached: true, stdio: "ignore" }).unref(); }
+            resolve({ current: current, latest: latest, available: newer, requested: false, notes: String(release.body || "").slice(0, 2000), status: newer ? "available" : "up-to-date", detail: "" });
+          } catch (error) { reject(error); }
+        });
+      });
+      req.on("error", function (error) { reject(new Error("Could not reach GitHub to check for updates: " + error.message)); });
+      req.on("timeout", function () { req.destroy(new Error("timeout")); });
+    });
+  };
+
   // Asks the Soma Hub to check ("check") or install ("install") the latest Release.
-  Extensions.prototype.hubUpdate = function (action, force) {
-    var http = this.n.http, NodeBuffer = this.n.Buffer;
+  Extensions.prototype.hubUpdate = function (action, force, current) {
+    var http = this.n.http, NodeBuffer = this.n.Buffer, self = this;
+    var mac = this.n.process && this.n.process.platform !== "win32";
+    current = current || this.version;
     return new Promise(function (resolve, reject) {
       if (!http) { reject(new Error("Updates are available inside the installed panel.")); return; }
       var body = JSON.stringify({ force: !!force });
@@ -279,7 +306,10 @@
           try { resolve(JSON.parse(NodeBuffer.concat(chunks).toString("utf8"))); } catch (error) { reject(error); }
         });
       });
-      req.on("error", function () { reject(new Error("The Soma Hub is not running, so updates cannot be checked. Reinstall Soma Agente or open “Soma Hub” from the Start menu.")); });
+      req.on("error", function () {
+        if (mac && current && self.n.https) { self.githubUpdate(action, current).then(resolve, reject); return; }
+        reject(new Error("The Soma Hub is not running, so updates cannot be checked. Reinstall Soma Agente or open “Soma Hub” from the Start menu."));
+      });
       req.on("timeout", function () { req.destroy(); });
       req.end(body);
     });

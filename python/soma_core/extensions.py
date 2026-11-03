@@ -18,6 +18,7 @@ import json
 import os
 import re
 import shutil
+import ssl
 import urllib.parse
 import urllib.request
 
@@ -134,9 +135,25 @@ def delete_skill(name):
     return {"deleted": slugify(name)}
 
 
+def _ssl_context():
+    """HTTPS context with certifi's certificates when present: the Python inside
+    Blender or Cinema 4D on the Mac may not find the system ones."""
+    try:
+        import certifi
+        return ssl.create_default_context(cafile=certifi.where())
+    except (ImportError, OSError):
+        pass
+    # python.org's Python on the Mac trusts nothing until "Install Certificates" runs; macOS ships this bundle.
+    if not system.WINDOWS and os.path.isfile("/etc/ssl/cert.pem"):
+        context = ssl.create_default_context()
+        context.load_verify_locations("/etc/ssl/cert.pem")
+        return context
+    return ssl.create_default_context()
+
+
 def _get(url):
     request = urllib.request.Request(url, headers={"User-Agent": "SomaAgente", "Accept": "application/vnd.github+json"})
-    with urllib.request.urlopen(request, timeout=60) as response:
+    with urllib.request.urlopen(request, timeout=60, context=_ssl_context()) as response:
         return response.read()
 
 
@@ -289,6 +306,22 @@ UPDATE_INSTRUCTIONS = ("Updates: soma_check_update checks GitHub for a newer Som
 HUB_URL = "http://127.0.0.1:47821"
 
 
+RELEASES = "https://github.com/alanomoxo/soma-agente/releases/latest"
+
+
+def _github_update(action):
+    """Update check straight from GitHub, for a Mac without the Soma Hub; "install" opens the download page."""
+    from .agent import VERSION  # agent imports this module
+    release = json.loads(_get("https://api.github.com/repos/alanomoxo/soma-agente/releases/latest").decode("utf-8"))
+    latest = str(release.get("tag_name") or "").lstrip("vV")
+    parts = lambda version: [int(p) if p.isdigit() else 0 for p in version.split(".")]
+    newer = parts(latest) > parts(VERSION)
+    if action == "install" and newer:
+        system.open_url(RELEASES)
+    return {"current": VERSION, "latest": latest, "available": newer, "requested": False, "status": "available" if newer else "up-to-date",
+            "detail": "", "notes": (release.get("body") or "")[:2000]}
+
+
 def hub_update(action, force=False):
     """Asks the Soma Hub to check ("check") or install ("install") the latest Release."""
     request = urllib.request.Request(HUB_URL + "/hub/update/" + action, data=json.dumps({"force": force}).encode("utf-8"),
@@ -297,6 +330,11 @@ def hub_update(action, force=False):
         with urllib.request.urlopen(request, timeout=90) as response:
             return json.loads(response.read().decode("utf-8"))
     except OSError:
+        if not system.WINDOWS:
+            try:
+                return _github_update(action)
+            except (OSError, ValueError) as error:
+                raise RuntimeError("Could not reach GitHub to check for updates: %s" % error)
         raise RuntimeError("The Soma Hub is not running, so updates cannot be checked. Reinstall Soma Agente or open “Soma Hub” from the Start menu.")
 
 

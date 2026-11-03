@@ -17,10 +17,12 @@ import time
 import urllib.request
 
 from soma_core import VERSION, system
+from soma_core.extensions import _ssl_context
 from soma_core.i18n import L
 
 REPOSITORY = "alanomoxo/soma-agente"
 API = "https://api.github.com/repos/%s/releases/latest" % REPOSITORY
+RELEASES_PAGE = "https://github.com/%s/releases/latest" % REPOSITORY
 INSTALLER = "Soma-Agente-Instalador.exe"
 CHECK_EVERY = 6 * 3600
 RETRY_EVERY = 10 * 60
@@ -48,7 +50,7 @@ def installed_version():
 
 def _get(url, accept="application/vnd.github+json"):
     request = urllib.request.Request(url, headers={"User-Agent": "SomaAgente-Hub/" + VERSION, "Accept": accept})
-    with urllib.request.urlopen(request, timeout=60) as response:
+    with urllib.request.urlopen(request, timeout=60, context=_ssl_context()) as response:
         return response.read()
 
 
@@ -128,7 +130,13 @@ class Updater:
         return self.snapshot()
 
     def request_install(self):
-        """The user asked to update now: install as soon as no Adobe program is open."""
+        """The user asked to update now: install as soon as no Adobe program is open.
+        The Mac has no automatic install: the download page opens instead."""
+        if not system.WINDOWS:
+            system.open_url(RELEASES_PAGE)
+            self._set(requested=False, status="manual", detail=L("Download the new version on the page that opened and run its installer.",
+                                                                 "Baixe a versão nova na página que abriu e rode o instalador."))
+            return self.snapshot()
         self._set(requested=True)
         self.wake.set()
         return self.snapshot()

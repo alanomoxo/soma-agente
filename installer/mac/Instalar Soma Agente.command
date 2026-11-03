@@ -309,10 +309,10 @@ if [ "${#open_apps[@]}" -gt 0 ]; then
   [ "$again" = "$(t "Já fechei" "Done")" ] || exit 0
 fi
 
-# Figma and Cavalry need the Soma Hub, which needs Python 3.
-python=""
+# The Soma Hub (Python 3) is installed whenever Python is there, as on Windows: Figma and
+# Cavalry need it, and it lets Antigravity drive every open program.
+python="$(find_python)"
 if has "Figma" || has "Cavalry"; then
-  python="$(find_python)"
   if [ -z "$python" ]; then
     get="$(dialog "$(t "O Figma e o Cavalry precisam do Python 3, que ainda não está neste Mac. Instale o Python e rode este instalador de novo. Os outros programas são instalados agora." "Figma and Cavalry need Python 3, which is not on this Mac yet. Install Python and run this installer again. The other programs are installed now.")" "$(t "Baixar o Python" "Download Python")" "$(t "Continuar sem" "Continue without")" "$(t "Baixar o Python" "Download Python")")"
     [ "$get" = "$(t "Baixar o Python" "Download Python")" ] && open "https://www.python.org/downloads/macos/"

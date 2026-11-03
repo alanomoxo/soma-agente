@@ -5,9 +5,33 @@
 }(typeof window !== "undefined" ? window : this, function () {
   "use strict";
   function windows(n) { return n.process && n.process.platform === "win32"; }
+  // Apps opened from the macOS Dock/Finder get a minimal PATH (/usr/bin:/bin…), without
+  // Homebrew, nvm, volta or bun. Ask the user's login shell for the real one, once.
+  var shellPath = null;
+  function loginShellPath(n) {
+    if (windows(n) || !n.childProcess) { return []; }
+    if (shellPath === null) {
+      shellPath = [];
+      var shell = /\/(zsh|bash)$/.test(String((n.process.env || {}).SHELL || "")) ? n.process.env.SHELL : "/bin/zsh";
+      try {
+        var out = n.childProcess.execFileSync(shell, ["-ilc", "printf '<<SOMA>>%s<<SOMA>>' \"$PATH\""], { encoding: "utf8", timeout: 6000, stdio: ["ignore", "pipe", "ignore"] });
+        var match = /<<SOMA>>(.*?)<<SOMA>>/.exec(out);
+        if (match) { shellPath = match[1].split(":").filter(Boolean); }
+      } catch (error) { /* no login shell: the usual folders below still apply */ }
+    }
+    return shellPath;
+  }
+  function macDirs(n) {
+    var home = n.os.homedir();
+    return ["/opt/homebrew/bin", "/usr/local/bin", n.path.join(home, ".local", "bin"), n.path.join(home, ".npm-global", "bin"),
+      n.path.join(home, ".volta", "bin"), n.path.join(home, ".bun", "bin")];
+  }
   function pathDirs(n) {
-    var env = n.process.env || {};
-    return String(env.Path || env.PATH || "").split(windows(n) ? ";" : ":").filter(Boolean);
+    var env = n.process.env || {}, dirs = [];
+    function add(dir) { if (dir && dirs.indexOf(dir) < 0) { dirs.push(dir); } }
+    String(env.Path || env.PATH || "").split(windows(n) ? ";" : ":").forEach(add);
+    if (!windows(n)) { loginShellPath(n).forEach(add); macDirs(n).forEach(add); }
+    return dirs;
   }
   // PATH entries for exe, plus WinGet's link folder on Windows.
   function onPath(n, exe) {
@@ -25,7 +49,8 @@
       var shim = exe.replace(/\.exe$/i, "") + ".cmd";
       pathDirs(n).forEach(function (dir) { if (n.fs.existsSync(n.path.join(dir, shim))) { roots.push(dir); } });
     } else {
-      roots.push("/opt/homebrew/lib", "/usr/local/lib", n.path.join(n.os.homedir(), ".npm-global", "lib"));
+      // <prefix>/bin on the PATH has its global packages in <prefix>/lib (Homebrew, nvm, volta…).
+      pathDirs(n).forEach(function (dir) { if (/[\\/]bin$/.test(dir)) { roots.push(n.path.join(n.path.dirname(dir), "lib")); } });
     }
     function search(dir, depth) {
       var entries;
@@ -84,6 +109,8 @@
     if (win) {
       var local = env.LOCALAPPDATA || n.path.join(n.os.homedir(), "AppData", "Local");
       candidates.push(n.path.join(local, "agy", "bin", exe), n.path.join(local, "Programs", "Antigravity", "bin", exe));
+    } else {
+      candidates.push("/opt/homebrew/bin/agy", "/usr/local/bin/agy");
     }
     candidates.push(n.path.join(n.os.homedir(), ".local", "bin", exe));
     candidates = candidates.concat(onPath(n, exe));
@@ -171,7 +198,8 @@
     Object.keys(source).forEach(function (key) { if (!win || key.toLowerCase() !== "path") { env[key] = source[key]; } });
     function add(value) { if (value && entries.indexOf(value) < 0) { entries.push(value); } }
     add(n.path.dirname(binary));
-    if (!win) { ["/usr/local/bin", "/opt/homebrew/bin", n.path.join(n.os.homedir(), ".local", "bin"), "/usr/bin", "/bin", "/usr/sbin", "/sbin"].forEach(add); }
+    // On the Mac the login shell's PATH comes first, so a CLI installed with npm finds its node.
+    if (!win) { loginShellPath(n).concat(macDirs(n), ["/usr/bin", "/bin", "/usr/sbin", "/sbin"]).forEach(add); }
     String(source.Path || source.PATH || "").split(win ? ";" : ":").forEach(add);
     env[win ? "Path" : "PATH"] = entries.join(win ? ";" : ":");
     return env;

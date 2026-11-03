@@ -438,7 +438,11 @@ class Agent:
     def login(self):
         if not self.binary:
             # Claude Code and the agy CLI have official one-line installers; run them and check again after.
-            proc = system.install_cli(self.provider, L("Done. This window closes in a few seconds.", "Pronto. Esta janela fecha em alguns segundos."))
+            if system.WINDOWS:
+                done = L("Done. This window closes in a few seconds.", "Pronto. Esta janela fecha em alguns segundos.")
+            else:
+                done = L("Done. You can close this window; Soma checks again by itself.", "Pronto. Pode fechar esta janela; o Soma verifica de novo sozinho.")
+            proc = system.install_cli(self.provider, done)
             if proc is None:
                 system.open_url({"claude": "https://code.claude.com/docs/en/setup", "chatgpt": "https://chatgpt.com/codex", "antigravity": "https://antigravity.google/docs/getting-started"}[self.provider])
                 return

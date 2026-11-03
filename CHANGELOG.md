@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.7.6
+- Painel Adobe no Mac: dá para digitar normalmente no chat. Espaço, Delete e as outras teclas ficam no painel enquanto você digita (antes iam para o After Effects, e o espaço tocava a prévia), e Cmd+C, Cmd+V, Cmd+X, Cmd+A e Cmd+Z funcionam no texto. Fora do campo de texto, os atalhos do programa continuam normais.
+- Painel Adobe: Ctrl/Cmd+Z dentro de um campo de texto desfaz o texto digitado.
+- Mac: o Soma encontra o Claude Code, o Codex e o Antigravity instalados por nvm, volta, bun ou Homebrew, mesmo com o programa aberto pelo Dock (ele lê o PATH do Terminal), e o Claude Code instalado por npm abre normalmente. Vale para o painel Adobe, o Blender, o Cinema 4D e o Soma Hub.
+- Mac: os botões "Instalar Claude Code" e "Instalar CLI do Antigravity" rodam o instalador oficial no Terminal e o Soma verifica de novo quando termina.
+- Mac: "Atualizar agora" abre a página de download em vez de ficar parado em "Instalando…", e a verificação de atualização funciona mesmo sem o Soma Hub.
+- Mac: o instalador instala o Soma Hub sempre que o Python 3 existe; conexões HTTPS usam os certificados do macOS (o Python do python.org não confiava em nenhum); o FFmpeg baixado é liberado e assinado localmente se o Mac impedir que ele abra.
+
 ## 1.7.5
 - Mac: instalador de dois cliques ("Instalar Soma Agente.command") com janelas do macOS em português ou inglês. Ele lista os programas encontrados (After Effects, Photoshop, Illustrator, Premiere Pro, Blender, Cinema 4D, Figma e Cavalry), instala os escolhidos, liga o add-on do Blender, inicia o Soma Hub junto com o Mac, copia o caminho do plugin do Figma e mostra onde abrir o Soma em cada programa. Também desinstala, guardando backups, e o zip traz um LEIA-ME curto.
 
