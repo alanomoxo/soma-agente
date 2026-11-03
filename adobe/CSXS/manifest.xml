@@ -2,10 +2,10 @@
 <ExtensionManifest
   Version="7.0"
   ExtensionBundleId="com.framepilot.aeagent"
-  ExtensionBundleVersion="1.7.6"
+  ExtensionBundleVersion="1.7.7"
   ExtensionBundleName="Soma Agente">
   <ExtensionList>
-    <Extension Id="com.framepilot.aeagent.panel" Version="1.7.6" />
+    <Extension Id="com.framepilot.aeagent.panel" Version="1.7.7" />
   </ExtensionList>
   <ExecutionEnvironment>
     <HostList>
