@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.7
+- After Effects: arraste camadas da Timeline ou itens do painel Project (comps, footage, solids, pastas) para o chat. Cada um vira uma referência (um chip acima da caixa de mensagem e um @Nome no texto), e a IA recebe exatamente qual é: nome, índice, comp e IDs.
+- Arrastar para o painel não mostra mais o cursor de proibido.
+
 ## 1.7.6
 - Painel Adobe no Mac: dá para digitar normalmente no chat. Espaço, Delete e as outras teclas ficam no painel enquanto você digita (antes iam para o After Effects, e o espaço tocava a prévia), e Cmd+C, Cmd+V, Cmd+X, Cmd+A e Cmd+Z funcionam no texto. Fora do campo de texto, os atalhos do programa continuam normais.
 - Painel Adobe: Ctrl/Cmd+Z dentro de um campo de texto desfaz o texto digitado.

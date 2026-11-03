@@ -632,6 +632,42 @@ textarea::placeholder { color: #777; }
   font-variant-numeric: tabular-nums;
 }
 
+/* Layers and Project items dragged in from After Effects. */
+.host-ref-tray {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 9px;
+}
+
+.host-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 3px 4px 3px 9px;
+  border: 1px solid rgba(var(--accent-rgb), .45);
+  border-radius: 999px;
+  background: rgba(var(--accent-rgb), .1);
+  color: var(--text);
+  font-size: 11px;
+}
+
+.host-ref span { overflow: hidden; max-width: 240px; text-overflow: ellipsis; white-space: nowrap; }
+.host-ref small { color: var(--muted); }
+
+.host-ref button {
+  display: grid;
+  width: 16px;
+  height: 16px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255,255,255,.08);
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1;
+}
+
 .attachment-tray {
   display: flex;
   gap: 8px;

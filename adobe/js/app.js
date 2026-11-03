@@ -60,6 +60,7 @@
     effortList: document.getElementById("effortList"),
     sendButton: document.getElementById("sendButton"),
     attachmentTray: document.getElementById("attachmentTray"),
+    hostRefTray: document.getElementById("hostRefTray"),
     connectionLabel: document.getElementById("connectionLabel"),
     referencesButton: document.getElementById("referencesButton"),
     referencesPopover: document.getElementById("referencesPopover"),
@@ -2043,13 +2044,15 @@
     elements.conversation.scrollTop = elements.conversation.scrollHeight;
   }
 
-  function attachmentSummary(items) {
+  function attachmentSummary(items, refs) {
     var names = items.map(function (item) { return item.name + (item.type === "video" && item.frames ? " (" + item.frames.length + " frames)" : ""); });
-    return names.length ? "\n\nAttached: " + names.join(", ") : "";
+    var summary = names.length ? "\n\nAttached: " + names.join(", ") : "";
+    if (refs && refs.length) { summary += L("\n\nReferences: ", "\n\nReferências: ") + refs.map(refLabel).join(", "); }
+    return summary;
   }
 
-  function addUserMessage(text, items) {
-    var message = addMessage("user", text + attachmentSummary(items));
+  function addUserMessage(text, items, refs) {
+    var message = addMessage("user", text + attachmentSummary(items, refs));
     var thumbs = items.map(function (item) { return item.type === "video" ? item.posterUrl : (item.type === "image" ? item.previewUrl : null); }).filter(Boolean);
     if (thumbs.length) {
       var strip = document.createElement("div");
@@ -2077,7 +2080,7 @@
     }
     if (waitingForAttachments) { return; }
     var text = elements.promptInput.value.trim();
-    if (!text && attachments.length === 0) {
+    if (!text && attachments.length === 0 && hostRefs.length === 0) {
       return;
     }
     if (!client.ready || (client.requiresOpenaiAuth && !client.account)) {
@@ -2119,10 +2122,13 @@
     });
     // A new session (first message, or after switching the AI) gets the chat so far.
     var history = client.threadId ? "" : conversationHistory();
-    addUserMessage(text || L("Attached reference", "Referência anexada"), sentAttachments);
+    var sentRefs = hostRefs.slice();
+    addUserMessage(text || L("Attached reference", "Referência anexada"), sentAttachments, sentRefs);
 
     attachments = [];
     renderAttachments();
+    hostRefs = [];
+    renderHostRefs();
     elements.promptInput.value = "";
     resizePrompt();
     isBusy = true;
@@ -2138,7 +2144,11 @@
     buildAttachmentBlocks(sentAttachments).then(function (input) {
       input.push({ type: "text", text: "[Panel mode: Chat only. Perform the requested work directly in " + HOST.name + ". Reusable tool creation is disabled.]" });
       if (history) { input.push({ type: "text", text: "<previous_conversation>\nThe conversation so far in this panel (possibly with another AI). Continue from it; the work it describes is already in the document.\n\n" + history + "\n</previous_conversation>" }); }
-      input.push({ type: "text", text: text || "Use the attached references. Describe what you infer and help me reproduce or adapt it in the active composition." });
+      if (sentRefs.length) {
+        input.push({ type: "text", text: "<referenced_items>\nThe user dragged these from " + HOST.name + " into the message (\"@name\" in the text points to them):\n" +
+          sentRefs.map(function (ref) { return "- " + describeRef(ref); }).join("\n") + "\n</referenced_items>" });
+      }
+      input.push({ type: "text", text: text || (sentRefs.length ? "Look at the referenced items and tell me what they are and how they are set up." : "Use the attached references. Describe what you infer and help me reproduce or adapt it in the active composition.") });
       if (sentAttachments.length) { setProgress("Analyzing the request", "Building an inspection and verification plan for the active composition.", "running"); }
       return client.startTurn(input);
     }).catch(function (error) {
@@ -2398,6 +2408,122 @@
       card.appendChild(remove);
       elements.attachmentTray.appendChild(card);
     });
+  }
+
+  // ------------------------------------------- references dragged in from After Effects
+  // After Effects gives the panel an empty drag, but selects what you drag. A light poll of
+  // the selection tells which one you just picked when both a layer and a Project item are selected.
+  var HOST_REFS = HOST.id === "aftereffects";
+  var hostRefs = [];
+  var selectionSeen = { layers: null, items: null, layersAt: 0, itemsAt: 0 };
+
+  function readSelection() {
+    var ask = 'typeof AEAgent._panelSelection === "function" ? AEAgent._panelSelection() : "missing"';
+    return new Promise(function (resolve) {
+      if (!cep || !HOST_REFS) { resolve(null); return; }
+      function parse(raw) { try { resolve(JSON.parse(raw)); } catch (error) { resolve(null); } }
+      ensureHostScript().then(function () {
+        cep.evalScript(ask, function (raw) {
+          if (raw !== "missing") { parse(raw); return; }
+          // After Effects keeps an older Soma script in memory after a panel update: load the current one.
+          var file = (extensionPath() + "/jsx/hosts/" + HOST.id + ".jsx").replace(/\\/g, "/");
+          cep.evalScript('$.evalFile(new File("' + file + '")); "loaded"', function () { cep.evalScript(ask, parse); });
+        });
+      }, function () { resolve(null); });
+    });
+  }
+
+  function noteSelection(selection) {
+    if (!selection) { return null; }
+    var layers = (selection.comp ? selection.comp.id : "") + ":" + selection.layers.map(function (layer) { return layer.index; }).join(",");
+    var items = selection.items.map(function (item) { return item.id; }).join(",");
+    var now = Date.now();
+    if (layers !== selectionSeen.layers) { selectionSeen.layers = layers; selectionSeen.layersAt = now; }
+    if (items !== selectionSeen.items) { selectionSeen.items = items; selectionSeen.itemsAt = now; }
+    return selection;
+  }
+
+  function refLabel(ref) { return ref.name + (ref.kind === "layer" ? " (" + ref.comp.name + ")" : ""); }
+
+  function describeRef(ref) {
+    if (ref.kind === "layer") {
+      return "Layer \"" + ref.name + "\" (index " + ref.layer.index + (ref.layer.id !== null ? ", layer id " + ref.layer.id : "") + ", " + ref.layer.type + ") in composition \"" + ref.comp.name + "\" (item id " + ref.comp.id + ")";
+    }
+    return "Project item \"" + ref.name + "\" (" + ref.item.type + ", item id " + ref.item.id + ")";
+  }
+
+  function insertAtCursor(text) {
+    var input = elements.promptInput, value = input.value;
+    var start = document.activeElement === input ? input.selectionStart : value.length;
+    var end = document.activeElement === input ? input.selectionEnd : value.length;
+    var before = value.slice(0, start), after = value.slice(end);
+    var piece = (before && !/\s$/.test(before) ? " " : "") + text + (/^\s/.test(after) ? "" : " ");
+    input.value = before + piece + after;
+    input.focus();
+    input.setSelectionRange(before.length + piece.length, before.length + piece.length);
+    resizePrompt();
+  }
+
+  function dropHostReferences() {
+    readSelection().then(function (selection) {
+      if (!noteSelection(selection)) { return; }
+      // While you work in a comp's Timeline, that comp stays selected in the Project panel.
+      var items = selection.items.filter(function (item) { return !(selection.comp && selection.layers.length && item.id === selection.comp.id); });
+      var layers = selection.layers;
+      if (layers.length && items.length) {
+        if (selectionSeen.layersAt >= selectionSeen.itemsAt) { items = []; } else { layers = []; }
+      }
+      var dropped = layers.map(function (layer) {
+        return { kind: "layer", key: "layer:" + selection.comp.id + ":" + (layer.id !== null ? layer.id : layer.index), name: layer.name, layer: layer, comp: selection.comp };
+      }).concat(items.map(function (item) {
+        return { kind: "item", key: "item:" + item.id, name: item.name, item: item };
+      }));
+      if (!dropped.length) {
+        showBanner(L("Drag a layer from the Timeline or an item from the Project panel.", "Arraste uma camada da Timeline ou um item do painel Project."), "info");
+        return;
+      }
+      dropped.forEach(function (ref) {
+        if (!hostRefs.some(function (known) { return known.key === ref.key; })) { hostRefs.push(ref); }
+      });
+      insertAtCursor(dropped.map(function (ref) { return "@" + ref.name; }).join(" "));
+      renderHostRefs();
+    });
+  }
+
+  function renderHostRefs() {
+    var tray = elements.hostRefTray;
+    if (!tray) { return; }
+    tray.innerHTML = "";
+    tray.hidden = hostRefs.length === 0;
+    hostRefs.forEach(function (ref) {
+      var chip = document.createElement("span");
+      chip.className = "host-ref";
+      chip.title = describeRef(ref);
+      var label = document.createElement("span");
+      label.textContent = (ref.kind === "layer" ? "◆ " : "▣ ") + ref.name;
+      if (ref.kind === "layer") {
+        var comp = document.createElement("small");
+        comp.textContent = " · " + ref.comp.name;
+        label.appendChild(comp);
+      }
+      var remove = document.createElement("button");
+      remove.type = "button";
+      remove.textContent = "×";
+      remove.setAttribute("aria-label", L("Remove reference ", "Remover referência ") + ref.name);
+      remove.addEventListener("click", function () {
+        hostRefs = hostRefs.filter(function (known) { return known !== ref; });
+        renderHostRefs();
+      });
+      chip.appendChild(label);
+      chip.appendChild(remove);
+      tray.appendChild(chip);
+    });
+  }
+
+  if (HOST_REFS) {
+    setInterval(function () {
+      if (!isBusy && document.visibilityState !== "hidden") { readSelection().then(noteSelection); }
+    }, 1500);
   }
 
   function removeAttachment(target) {
@@ -3485,11 +3611,19 @@
       if (!isBusy) { sendMessage(); }
     }
   });
-  // Files can be dropped anywhere on the panel.
-  document.addEventListener("dragover", function (event) { event.preventDefault(); });
+  // Files can be dropped anywhere on the panel; so can layers and Project items from After Effects.
+  ["dragenter", "dragover"].forEach(function (name) {
+    document.addEventListener(name, function (event) {
+      event.preventDefault();
+      try { event.dataTransfer.dropEffect = "copy"; } catch (error) { /* read-only for some drags */ }
+    });
+  });
   document.addEventListener("drop", function (event) {
     event.preventDefault();
-    Array.prototype.forEach.call(event.dataTransfer.files || [], addFile);
+    var files = (event.dataTransfer && event.dataTransfer.files) || [];
+    Array.prototype.forEach.call(files, addFile);
+    // A drag from After Effects' own panels carries no data: reference what it selected.
+    if (!files.length && HOST_REFS) { dropHostReferences(); }
   });
   document.addEventListener("paste", function (event) {
     var files = (event.clipboardData && event.clipboardData.files) || [];

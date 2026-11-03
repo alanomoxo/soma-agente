@@ -95,6 +95,28 @@ AEAgent._propertyValue = function (group, matchName) {
     }
 };
 
+// The panel's drag-and-drop references: what is selected in the Timeline and the Project
+// panel right now (After Effects selects what you drag). Not a tool (leading underscore).
+AEAgent._panelSelection = function () {
+    var out = { comp: null, layers: [], items: [] };
+    var comp = app.project.activeItem;
+    if (comp && comp instanceof CompItem) {
+        out.comp = { id: comp.id, name: comp.name };
+        for (var i = 0; i < comp.selectedLayers.length; i += 1) {
+            var layer = comp.selectedLayers[i], layerId = null;
+            try { layerId = layer.id; } catch (error) { layerId = null; }
+            out.layers.push({ index: layer.index, name: layer.name, id: layerId === undefined ? null : layerId, type: AEAgent._layerType(layer) });
+        }
+    }
+    var selection = app.project.selection;
+    for (var j = 0; j < selection.length; j += 1) {
+        var item = selection[j], kind = "footage";
+        if (item instanceof CompItem) { kind = "composition"; } else if (item instanceof FolderItem) { kind = "folder"; } else if (item.mainSource && item.mainSource instanceof SolidSource) { kind = "solid"; }
+        out.items.push({ id: item.id, name: item.name, type: kind });
+    }
+    return AEAgent._stringify(out);
+};
+
 AEAgent._layerType = function (layer) {
     if (layer instanceof TextLayer) {
         return "text";
