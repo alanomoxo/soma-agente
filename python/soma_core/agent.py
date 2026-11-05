@@ -17,6 +17,7 @@ import json
 import os
 import platform
 import queue
+import re
 import secrets
 import subprocess
 import threading
@@ -47,13 +48,47 @@ def codex_home():
     return os.environ.get("CODEX_HOME") or os.path.join(system.HOME, ".codex")
 
 
+def unavailable_file():
+    return os.path.join(system.data_directory(), "codex-unavailable-models.json")
+
+
+def unavailable_models():
+    """Models the server refused for this ChatGPT account in the last week (shared with
+    the Adobe panel): models_cache.json lists models whatever the plan."""
+    try:
+        with open(unavailable_file(), "r", encoding="utf-8") as handle:
+            saved = json.load(handle)
+    except (OSError, ValueError):
+        return {}
+    return {slug: when for slug, when in saved.items() if time.time() - when < 7 * 86400}
+
+
+def remember_unavailable_model(slug):
+    saved = unavailable_models()
+    saved[slug] = time.time()
+    try:
+        with open(unavailable_file(), "w", encoding="utf-8") as handle:
+            json.dump(saved, handle)
+    except OSError:
+        pass  # only costs one more refusal
+
+
+def refused_codex_model(detail, selected):
+    """The slug in a "model is not supported" failure, or None for any other failure."""
+    if "model_not_found" not in detail and "model is not supported" not in detail.lower():
+        return None
+    found = re.search(r"The '([^']+)' model", detail)
+    return found.group(1) if found else (selected.get("model") or "default")
+
+
 def codex_models():
     models = [{"id": "default", "model": None, "name": "ChatGPT (default)", "efforts": [], "effort": None}]
     try:
         with open(os.path.join(codex_home(), "models_cache.json"), "r", encoding="utf-8") as handle:
             cache = json.load(handle)
+        unavailable = unavailable_models()
         for m in cache.get("models", []):
-            if m.get("slug") and m.get("visibility") != "hide":
+            if m.get("slug") and m.get("visibility") != "hide" and m["slug"] not in unavailable:
                 models.append({
                     "id": m["slug"], "model": m["slug"], "name": m.get("display_name") or m["slug"],
                     "efforts": [level.get("effort") for level in m.get("supported_reasoning_levels", []) if level.get("effort")],
@@ -764,7 +799,8 @@ class Agent:
             return L("Antigravity is not signed in. Click Connect and finish the login.", "O Antigravity está sem login. Clique em Conectar e termine o login.")
         return detail or "Antigravity exited with code %s." % self.proc.returncode
 
-    def _run_codex(self, text, images, key):
+    def _run_codex(self, text, images, key, retries=0, default_refused=False):
+        thread_before = self.thread_id
         data_dir = system.data_directory()
         ns = self.host.namespace
         args = [self.binary, "exec", "--json", "--skip-git-repo-check", "--ignore-user-config", "-s", "read-only", "-C", data_dir,
@@ -800,6 +836,7 @@ class Agent:
         self.proc.stdin.close()
         completed = False
         failure = None
+        worked = False
         for raw_line in self.proc.stdout:
             try:
                 event = json.loads(raw_line.decode("utf-8"))
@@ -811,8 +848,10 @@ class Agent:
                 self.thread_id = event["thread_id"]
             elif kind in ("item.started", "item.completed") and item:
                 if item.get("type") == "agent_message" and kind == "item.completed" and item.get("text"):
+                    worked = True
                     self.add_message("assistant", item["text"], key=key + item.get("id", ""))
                 elif item.get("type") == "mcp_tool_call":
+                    worked = True
                     state = "running" if kind == "item.started" else ("done" if item.get("status") == "completed" and not item.get("error") else "failed")
                     self.add_message("tool", self._tool_label(item.get("tool", ""), item.get("arguments") or {}), key=key + item.get("id", ""), state=state, tool=item.get("tool"))
             elif kind == "turn.completed":
@@ -827,6 +866,20 @@ class Agent:
         if completed and not failure:
             return None
         detail = failure or "".join(stderr).strip() or "Codex exited with code %s." % self.proc.returncode
+        # The server refused the model before any work: try another one with the same request.
+        refused = None if worked else refused_codex_model(detail, model)
+        if refused:
+            name = model["name"] if model["model"] else refused
+            default_refused = default_refused or not model["model"]
+            remember_unavailable_model(refused)
+            self.thread_id = thread_before
+            nxt = next((m for m in codex_models() if bool(m["model"]) == default_refused), None)
+            if nxt and retries < 4:
+                self.select_model(nxt["id"])
+                self.add_message("status", L("%s is not available on your ChatGPT account. Switched to %s.", "O %s não está disponível na sua conta do ChatGPT. Troquei para %s.") % (name, nxt["name"]))
+                return self._run_codex(text, images, key, retries + 1, default_refused)
+            return L("Your ChatGPT account did not accept any of the models Codex lists. Update Codex and check your plan, then try again.",
+                     "Sua conta do ChatGPT não aceitou nenhum dos modelos que o Codex lista. Atualize o Codex, confira seu plano e tente de novo.")
         lowered = detail.lower()
         if "not logged in" in lowered or "unauthorized" in lowered or "401" in lowered:
             self.signed_in = False

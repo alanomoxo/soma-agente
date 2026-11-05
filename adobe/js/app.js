@@ -966,12 +966,36 @@
     return node.process.env.CODEX_HOME || node.path.join(node.os.homedir(), ".codex");
   }
 
+  // models_cache.json lists models whatever the ChatGPT plan, so a model the server
+  // refuses is remembered for a week (shared with soma_core) and left out of the list.
+  function unavailableFile() { return node.path.join(claudeDataDirectory(), "codex-unavailable-models.json"); }
+
+  function unavailableModels() {
+    var saved = readJson(unavailableFile()), fresh = {}, now = Date.now() / 1000;
+    Object.keys(saved).forEach(function (slug) { if (now - saved[slug] < 7 * 86400) { fresh[slug] = saved[slug]; } });
+    return fresh;
+  }
+
+  function rememberUnavailableModel(slug) {
+    var saved = unavailableModels();
+    saved[slug] = Date.now() / 1000;
+    try { writeJson(unavailableFile(), saved); } catch (error) { /* only costs one more refusal */ }
+  }
+
+  // The slug in a "model is not supported" failure, or null for any other failure.
+  function refusedCodexModel(detail, selected) {
+    if (!/model_not_found|model is not supported/i.test(detail)) { return null; }
+    var match = /The '([^']+)' model/.exec(detail);
+    return match ? match[1] : ((selected && selected.model) || "default");
+  }
+
   // The Codex app caches the models available to the signed-in account.
   function codexModels() {
     var models = [{ id: "default", model: null, displayName: "ChatGPT (default)", description: "The default model of your ChatGPT account.", isDefault: true, supportedReasoningEfforts: [], defaultReasoningEffort: null }];
     try {
       var cache = JSON.parse(node.fs.readFileSync(node.path.join(codexHome(), "models_cache.json"), "utf8"));
-      (cache.models || []).filter(function (m) { return m.slug && m.visibility !== "hide"; }).forEach(function (m) {
+      var unavailable = unavailableModels();
+      (cache.models || []).filter(function (m) { return m.slug && m.visibility !== "hide" && !unavailable[m.slug]; }).forEach(function (m) {
         models.push({
           id: m.slug, model: m.slug, displayName: m.display_name || m.slug, description: m.description || "",
           supportedReasoningEfforts: (m.supported_reasoning_levels || []).map(function (level) { return { reasoningEffort: level.effort, description: level.description || "" }; }),
@@ -1090,6 +1114,7 @@
   CodexClient.prototype.startTurn = function (content) {
     var self = this;
     var run = activeRun;
+    var threadBefore = this.threadId;
     return new Promise(function (resolve) {
       if (!run || run !== activeRun || run.stopRequested) { throw new Error("Request stopped before generation started."); }
       var dataDir = claudeDataDirectory();
@@ -1141,8 +1166,10 @@
         } else if ((event.type === "item.started" || event.type === "item.completed") && event.item) {
           var item = event.item;
           if (item.type === "agent_message" && event.type === "item.completed" && item.text) {
+            run.codexWorked = true;
             finalizeAssistantItem(turnKey + item.id, item.text);
           } else if (item.type === "mcp_tool_call") {
+            run.codexWorked = true;
             var state = event.type === "item.started" ? "running" : (item.status === "completed" && !item.error ? "done" : "failed");
             showToolEvent(turnKey + item.id, item.tool, state, event.type === "item.started" ? (item.arguments || {}) : null);
           }
@@ -1169,6 +1196,28 @@
         if (activeRun !== run) { return; }
         if (run.stopRequested) { finishTurn({ status: "interrupted" }); return; }
         if (completed && !failure) { finishTurn({ status: "completed" }); return; }
+        // The server refused the model before any work: try another one with the same request.
+        var refused = run.codexWorked ? null : refusedCodexModel(detail, self.selectedModel);
+        if (refused) {
+          var chosen = self.selectedModel || {};
+          var name = chosen.model ? (chosen.displayName || chosen.model) : refused;
+          if (!chosen.model) { run.defaultRefused = true; }
+          rememberUnavailableModel(refused);
+          self.threadId = threadBefore;
+          self.models = codexModels();
+          var next = self.models.filter(function (m) { return run.defaultRefused ? m.model : !m.model; })[0];
+          run.modelRetries = (run.modelRetries || 0) + 1;
+          if (next && run.modelRetries <= 4) {
+            selectModel(next);
+            showBanner(L(name + " is not available on your ChatGPT account. Switched to " + (next.displayName || next.model) + ".",
+              "O " + name + " não está disponível na sua conta do ChatGPT. Troquei para " + (next.displayName || next.model) + "."), "info");
+            self.startTurn(content).catch(function (error) { finishTurn({ status: "failed", error: { message: error.message } }); });
+            return;
+          }
+          renderModelPicker();
+          detail = L("Your ChatGPT account did not accept any of the models Codex lists. Update Codex and check your plan, then try again.",
+            "Sua conta do ChatGPT não aceitou nenhum dos modelos que o Codex lista. Atualize o Codex, confira seu plano e tente de novo.");
+        }
         finishTurn({ status: "failed", error: { message: detail } });
       });
 

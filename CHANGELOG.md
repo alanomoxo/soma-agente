@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.7.8
+- ChatGPT: quando a conta não aceita o modelo escolhido (erro "model is not supported"), o Soma troca de modelo sozinho, reenvia o pedido e avisa em português. O modelo recusado sai da lista por 7 dias. Vale para o painel Adobe, o Blender, o Cinema 4D, o Figma e o Cavalry.
+
 ## 1.7.7
 - After Effects: arraste camadas da Timeline ou itens do painel Project (comps, footage, solids, pastas) para o chat. Cada um vira uma referência (um chip acima da caixa de mensagem e um @Nome no texto), e a IA recebe exatamente qual é: nome, índice, comp e IDs.
 - Arrastar para o painel não mostra mais o cursor de proibido.
