@@ -99,7 +99,7 @@ class SomaDialog(gui.GeDialog):
         self.GroupBegin(0, c4d.BFH_SCALEFIT, cols=6)
         self.AddButton(ID_SEND, c4d.BFH_SCALEFIT, name="Send")
         self.AddButton(ID_STOP, c4d.BFH_LEFT, name="Stop")
-        self.AddButton(ID_ATTACH, c4d.BFH_LEFT, name="Attach image")
+        self.AddButton(ID_ATTACH, c4d.BFH_LEFT, name="Attach file")
         self.AddButton(ID_CLEAR, c4d.BFH_LEFT, name="Clear")
         self.AddButton(ID_NEW, c4d.BFH_LEFT, name="New chat")
         self.AddComboBox(ID_LANGUAGE, c4d.BFH_RIGHT)
@@ -119,7 +119,7 @@ class SomaDialog(gui.GeDialog):
     def apply_texts(self):
         """Button captions in the current language (also after switching it)."""
         for cid, en, pt in ((ID_CONNECT, "Connect", "Conectar"), (ID_CHECK, "Check", "Verificar"), (ID_SEND, "Send", "Enviar"),
-                            (ID_STOP, "Stop", "Parar"), (ID_ATTACH, "Attach image", "Anexar imagem"), (ID_CLEAR, "Clear", "Limpar"),
+                            (ID_STOP, "Stop", "Parar"), (ID_ATTACH, "Attach file", "Anexar arquivo"), (ID_CLEAR, "Clear", "Limpar"),
                             (ID_NEW, "New chat", "Nova conversa"), (ID_FEEDBACK, "Suggest / report bug", "Sugerir / reportar bug")):
             self.SetString(cid, L(en, pt))
         if not LOAD_ERROR:
@@ -251,7 +251,7 @@ class SomaDialog(gui.GeDialog):
         elif cid == ID_STOP:
             a.stop()
         elif cid == ID_ATTACH:
-            path = c4d.storage.LoadDialog(type=c4d.FILESELECTTYPE_IMAGES, title=L("Attach a reference image", "Anexar uma imagem de referência"))
+            path = c4d.storage.LoadDialog(type=c4d.FILESELECTTYPE_ANYTHING, title=L("Attach an image, video, audio, PDF or document", "Anexar imagem, vídeo, áudio, PDF ou documento"))
             if path:
                 self.attachments.append(path)
         elif cid == ID_CLEAR:

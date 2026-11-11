@@ -79,8 +79,8 @@
     <div class="composer">
       <textarea id="prompt" placeholder="Message Soma Agente" rows="2"></textarea>
       <div class="actions">
-        <button class="ghost" id="attach" title="Attach reference images">+ Image</button>
-        <input type="file" id="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden />
+        <button class="ghost" id="attach" title="Attach files">+ File</button>
+        <input type="file" id="file" accept=".png,.jpg,.jpeg,.gif,.webp,.mp4,.mov,.m4v,.webm,.mkv,.avi,.wmv,.mts,.mpg,.mpeg,.mp3,.wav,.m4a,.aac,.flac,.ogg,.oga,.opus,.wma,.pdf,.docx,.pptx,.xlsx,.odt,.odp,.ods,.rtf,.txt,.md,.markdown,.csv,.tsv,.json,.xml,.html,.htm,.srt,.vtt,.js,.jsx,.ts,.py,.css,.yaml,.yml,.ini,.log" multiple hidden />
         <div class="spacer"></div>
         <button class="send" id="send" title="Send">↑</button>
       </div>
@@ -129,8 +129,8 @@
     el("connect").textContent = L("Connect", "Conectar");
     el("offline").textContent = L("Soma Agente is not running on this computer. It starts automatically when you log in to Windows; you can also open “Soma Hub” from the Start menu. This panel reconnects by itself.", "O Soma Agente não está rodando neste computador. Ele inicia sozinho quando você entra no Windows; você também pode abrir o “Soma Hub” no menu Iniciar. Este painel reconecta sozinho.");
     el("prompt").placeholder = L("Message Soma Agente", "Mensagem para o Soma Agente");
-    el("attach").title = L("Attach reference images", "Anexar imagens de referência");
-    el("attach").textContent = L("+ Image", "+ Imagem");
+    el("attach").title = L("Attach images, videos, audio, PDFs or documents", "Anexar imagens, vídeos, áudios, PDFs ou documentos");
+    el("attach").textContent = L("+ File", "+ Arquivo");
     el("send").title = L("Send", "Enviar");
   }
 

@@ -2368,7 +2368,7 @@
     if (!file) { return Promise.resolve(); }
     var kind = window.AEReferences.kindForName(file.name || "", file.type);
     if (!kind) {
-      showBanner("“" + (file.name || "This file") + "” is not supported. Attach images, videos, audio, PDFs, or text documents.");
+      showBanner("“" + (file.name || "This file") + "” is not supported. Attach images, videos, audio, PDFs, or documents (Word, PowerPoint, Excel, text).");
       return Promise.resolve();
     }
     if (!node.fs) { showBanner("Attachments work inside the installed " + HOST.name + " panel."); return Promise.resolve(); }
@@ -2852,11 +2852,17 @@
           return;
         }
         if (/\.pdf$/i.test(item.path)) {
-          blocks.push({ type: "text", text: attachmentHeading(item, number, "PDF document") + "." });
-          blocks.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: node.fs.readFileSync(item.path).toString("base64") } });
+          // Claude reads the PDF itself (pages, layout, pictures); the others get its text.
+          if (provider === "claude" && node.fs.statSync(item.path).size <= 20 * 1024 * 1024) {
+            blocks.push({ type: "text", text: attachmentHeading(item, number, "PDF document") + "." });
+            blocks.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: node.fs.readFileSync(item.path).toString("base64") } });
+            return;
+          }
+          var pdf = window.SomaDocuments.pdfText(node, item.path, MAX_TEXT_CHARS);
+          blocks.push({ type: "text", text: attachmentHeading(item, number, "PDF document") + ". Its text:\n" + (pdf || "(No text could be extracted: the PDF is probably scanned images.)") });
           return;
         }
-        var content = node.fs.readFileSync(item.path, "utf8");
+        var content = window.SomaDocuments.documentText(node, item.path);
         var truncated = content.length > MAX_TEXT_CHARS;
         blocks.push({ type: "text", text: attachmentHeading(item, number, "document") + (truncated ? " (first " + MAX_TEXT_CHARS + " characters)" : "") + ":\n" + content.slice(0, MAX_TEXT_CHARS) });
       }).catch(function (error) {

@@ -19,6 +19,7 @@ import platform
 import queue
 import re
 import secrets
+import shutil
 import subprocess
 import threading
 import time
@@ -26,7 +27,7 @@ import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from . import extensions, system
+from . import attachments, extensions, system
 from .i18n import L
 
 VERSION = "1.7.8"
@@ -555,21 +556,23 @@ class Agent:
         return ran
 
     # -------------------------------------------------------------- turns
-    def send(self, text, images=None):
+    def send(self, text, files=None):
+        """files: images, videos, audio, PDFs or documents (see attachments.py)."""
         text = (text or "").strip()
-        images = [p for p in (images or []) if p and os.path.isfile(p)]
-        if self.busy or (not text and not images):
+        files = [p for p in (files or []) if p and os.path.isfile(p)]
+        if self.busy or (not text and not files):
             return False
         if not self.binary or not self.signed_in:
             self.add_message("error", L("Connect your %s account first (Connect button).", "Conecte sua conta %s primeiro (botão Conectar).") % self.provider_name)
             return False
-        label = text + ("" if not images else L("\n[%d image(s) attached]", "\n[%d imagem(ns) anexada(s)]") % len(images))
+        names = ", ".join(os.path.basename(p) for p in files)
+        label = text + ("" if not files else L("\n[Attached: %s]", "\n[Anexos: %s]") % names)
         prompt = self._with_history(text)
         self.add_message("user", label)
         self.busy = True
         self.stop_requested = False
         self.set_status(L("Working…", "Trabalhando…"))
-        threading.Thread(target=self._run_turn, args=(prompt, images), daemon=True).start()
+        threading.Thread(target=self._run_turn, args=(prompt, files), daemon=True).start()
         return True
 
     def _with_history(self, text):
@@ -617,25 +620,49 @@ class Agent:
                 pass
         self._temp_files = []
 
-    def _run_turn(self, text, images):
+    def _run_turn(self, text, files):
         self.turn_counter += 1
         key = "t%d:" % self.turn_counter
+        parts = []
         try:
+            if files:
+                self.set_status(L("Reading the attachments…", "Lendo os anexos…"))
+                parts = attachments.prepare(files, status=lambda step: self.set_status(
+                    L("Downloading FFmpeg to read the video (only the first time)…", "Baixando o FFmpeg para ler o vídeo (só na primeira vez)…")))
+                self.set_status(L("Working…", "Trabalhando…"))
             if self.provider == "claude":
-                error = self._run_claude(text, images, key)
+                error = self._run_claude(text, parts, key)
             elif self.provider == "antigravity":
-                error = self._run_agy(text, images, key)
+                error = self._run_agy(text, parts, key)
             else:
-                error = self._run_codex(text, images, key)
+                error = self._run_codex(text, parts, key)
         except Exception as failure:  # noqa: BLE001
             error = "%s: %s" % (type(failure).__name__, failure)
+        # Video frames and audio extracted for this message.
+        work = os.path.join(system.data_directory(), "attachments")
+        for folder in {os.path.dirname(p["path"]) for p in parts if p.get("path", "").startswith(work)}:
+            shutil.rmtree(folder, ignore_errors=True)
         self._finish(error)
+
+    @staticmethod
+    def _plain_parts(parts, image_note):
+        """Attachments as text lines plus image files, for agents that take no PDF or image blocks."""
+        lines, images = [], []
+        for part in parts:
+            if part["type"] == "text":
+                lines.append(part["text"])
+            elif part["type"] == "image":
+                images.append(part["path"])
+                lines.append(image_note % ((len(images), part["path"]) if image_note.count("%") == 2 else len(images)))
+            elif part["type"] == "pdf":
+                lines.append("Text of the PDF:\n" + part["text"])
+        return lines, images
 
     def _tool_label(self, name, args):
         summary = args.get("summary") if isinstance(args, dict) else None
         return summary or name.replace("_", " ")
 
-    def _run_claude(self, text, images, key):
+    def _run_claude(self, text, parts, key):
         data_dir = system.data_directory()
         prompt_path = os.path.join(data_dir, "system-prompt-%s.txt" % self.host.id)
         with open(prompt_path, "w", encoding="utf-8") as handle:
@@ -658,17 +685,20 @@ class Agent:
         if effort and model["efforts"]:
             args += ["--effort", effort]
         content = []
-        for number, path in enumerate(images, 1):
-            ext = os.path.splitext(path)[1].lower()
-            if ext not in IMAGE_TYPES:
-                continue
-            with open(path, "rb") as handle:
-                raw = handle.read()
-            if len(raw) > 4_800_000:
-                content.append({"type": "text", "text": "Attachment %d (%s) is too large to send as an image." % (number, path)})
-                continue
-            content.append({"type": "text", "text": "Attachment %d: image file at %s" % (number, path)})
-            content.append({"type": "image", "source": {"type": "base64", "media_type": IMAGE_TYPES[ext], "data": base64.b64encode(raw).decode("ascii")}})
+        for part in parts:
+            if part["type"] == "text":
+                content.append({"type": "text", "text": part["text"]})
+            elif part["type"] == "image":
+                with open(part["path"], "rb") as handle:
+                    data = base64.b64encode(handle.read()).decode("ascii")
+                content.append({"type": "image", "source": {"type": "base64", "media_type": part["media_type"], "data": data}})
+            elif part["type"] == "pdf" and part["size"] <= attachments.MAX_PDF_BYTES:
+                # Claude reads the PDF itself: pages, layout and pictures.
+                with open(part["path"], "rb") as handle:
+                    data = base64.b64encode(handle.read()).decode("ascii")
+                content.append({"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": data}})
+            elif part["type"] == "pdf":
+                content.append({"type": "text", "text": "The PDF is too large to send whole; its text:\n" + part["text"]})
         content.append({"type": "text", "text": text or "Use the attached references."})
         prefix = "mcp__" + self.host.namespace + "__"
 
@@ -726,7 +756,7 @@ class Agent:
         detail = (final and (final.get("result") or " ".join(final.get("errors") or []))) or "".join(stderr).strip()
         return detail or "Claude Code exited with code %s." % self.proc.returncode
 
-    def _run_agy(self, text, images, key):
+    def _run_agy(self, text, parts, key):
         """Antigravity CLI. It has no per-run MCP option, so it reaches this program
         through the Soma Hub registered in Antigravity's MCP config (server "soma")."""
         extensions.sync_antigravity()
@@ -740,8 +770,7 @@ class Agent:
                           "Skills and connectors are managed with the soma_* tools of the same soma server (soma_create_skill, soma_read_skill, soma_add_connector...). "
                           "Other open programs are listed by list_apps if the user asks to combine programs. Do not use the terminal, browser or file-editing tools for work in %s.\n</soma_instructions>"
                           % (self._instructions(), self.host.name, self.host.id, self.host.id, self.host.name))
-        for number, path in enumerate(images, 1):
-            prompt.append("[Attached image #%d, file path: %s]" % (number, path))
+        prompt += self._plain_parts(parts, "[Attached image #%d, file path: %s]")[0]
         prompt.append(text or "Use the attached references.")
         # Headless agy only runs tools allowed in its settings: the three Soma Hub
         # tools (see system.ensure_antigravity_config); everything else is denied.
@@ -799,7 +828,7 @@ class Agent:
             return L("Antigravity is not signed in. Click Connect and finish the login.", "O Antigravity está sem login. Clique em Conectar e termine o login.")
         return detail or "Antigravity exited with code %s." % self.proc.returncode
 
-    def _run_codex(self, text, images, key, retries=0, default_refused=False):
+    def _run_codex(self, text, parts, key, retries=0, default_refused=False):
         thread_before = self.thread_id
         data_dir = system.data_directory()
         ns = self.host.namespace
@@ -818,10 +847,8 @@ class Agent:
             args += ["-c", "model_reasoning_effort=" + json.dumps(effort)]
         if self.thread_id:
             args.append("resume")
-        prompt = []
-        for number, path in enumerate(images, 1):
-            args.append("--image=" + path)
-            prompt.append("[Attached image #%d: %s]" % (number, path))
+        prompt, images = self._plain_parts(parts, "[Attached image #%d]")
+        args += ["--image=" + path for path in images]
         if self.thread_id:
             args.append(self.thread_id)
         args.append("-")
@@ -877,7 +904,7 @@ class Agent:
             if nxt and retries < 4:
                 self.select_model(nxt["id"])
                 self.add_message("status", L("%s is not available on your ChatGPT account. Switched to %s.", "O %s não está disponível na sua conta do ChatGPT. Troquei para %s.") % (name, nxt["name"]))
-                return self._run_codex(text, images, key, retries + 1, default_refused)
+                return self._run_codex(text, parts, key, retries + 1, default_refused)
             return L("Your ChatGPT account did not accept any of the models Codex lists. Update Codex and check your plan, then try again.",
                      "Sua conta do ChatGPT não aceitou nenhum dos modelos que o Codex lista. Atualize o Codex, confira seu plano e tente de novo.")
         lowered = detail.lower()

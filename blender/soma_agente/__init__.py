@@ -20,7 +20,7 @@ import bpy.utils.previews
 from bpy.props import CollectionProperty, EnumProperty, StringProperty
 from bpy.types import Operator, Panel, PropertyGroup
 
-from .soma_core import Agent, extensions, i18n
+from .soma_core import Agent, attachments, extensions, i18n
 from .soma_core.i18n import L
 from .host import BlenderHost
 
@@ -211,11 +211,11 @@ class SOMA_OT_check(Operator):
 
 class SOMA_OT_attach(Operator):
     bl_idname = "soma.attach"
-    bl_label = "Attach image"
-    bl_description = "Attach a reference image (PNG, JPG, GIF, WebP)"
-    description = _tip("Attach a reference image (PNG, JPG, GIF, WebP)", "Anexar uma imagem de referência (PNG, JPG, GIF, WebP)")
+    bl_label = "Attach file"
+    bl_description = "Attach images, videos, audio, PDFs or documents (Word, PowerPoint, Excel, text)"
+    description = _tip("Attach images, videos, audio, PDFs or documents (Word, PowerPoint, Excel, text)", "Anexar imagens, vídeos, áudios, PDFs ou documentos (Word, PowerPoint, Excel, texto)")
     filepath: StringProperty(subtype="FILE_PATH")
-    filter_glob: StringProperty(default="*.png;*.jpg;*.jpeg;*.gif;*.webp", options={"HIDDEN"})
+    filter_glob: StringProperty(default=attachments.file_filter(), options={"HIDDEN"})
 
     def invoke(self, context, event):
         context.window_manager.fileselect_add(self)
@@ -483,7 +483,7 @@ class SOMA_PT_chat(Panel):
         if wm.soma_attachments:
             row = box.row(align=True)
             names = ", ".join(os.path.basename(item.path) for item in wm.soma_attachments)
-            row.label(text=names if len(names) <= chars - 6 else names[:chars - 7] + "…", icon="IMAGE_DATA")
+            row.label(text=names if len(names) <= chars - 6 else names[:chars - 7] + "…", icon="FILE")
             row.operator("soma.clear_attachments", text="", icon="X", emboss=False)
         row = box.row()
         row.scale_y = 1.5
@@ -493,7 +493,7 @@ class SOMA_PT_chat(Panel):
             row.prop(wm, "soma_prompt", text="", icon="TEXT")
         row = box.row(align=True)
         row.scale_y = 1.3
-        row.operator("soma.attach", text="", icon="IMAGE_DATA")
+        row.operator("soma.attach", text="", icon="FILE_NEW")
         row.operator("soma.open_chat", text="", icon="TEXT")
         row.separator()
         if a.busy:

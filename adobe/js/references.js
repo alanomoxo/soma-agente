@@ -13,7 +13,7 @@
     image: /\.(png|jpe?g|gif|webp|bmp|tiff?|avif|heic|psd|exr|tga)$/i,
     video: /\.(mp4|mov|m4v|webm|mkv|avi|mxf|wmv|mpe?g|gif)$/i,
     audio: /\.(mp3|wav|m4a|aac|ogg|oga|opus|flac|aiff?|wma)$/i,
-    document: /\.(pdf|txt|md|markdown|json|csv|tsv|srt|vtt|xml|html?|css|jsx?|tsx?|py|jsxbin|ass|rtf)$/i
+    document: /\.(pdf|docx|pptx|xlsx|odt|odp|ods|txt|md|markdown|json|csv|tsv|srt|vtt|xml|html?|css|jsx?|tsx?|py|jsxbin|ass|rtf)$/i
   };
 
   function kindForName(name, mime) {

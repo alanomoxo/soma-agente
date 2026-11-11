@@ -96,7 +96,7 @@
           </div>
           <p class="references-hint">Click a reference to attach it. Pinned references are sent automatically at the start of every new chat.</p>
           <div id="referenceList" class="reference-list"></div>
-          <input id="referenceInput" type="file" accept="image/*,video/*,audio/*,.pdf,.txt,.md,.json,.csv,.srt,.vtt,.xml,.html,.jsx,.js" multiple hidden />
+          <input id="referenceInput" type="file" accept="image/*,video/*,audio/*,.pdf,.docx,.pptx,.xlsx,.odt,.odp,.ods,.rtf,.txt,.md,.json,.csv,.tsv,.srt,.vtt,.xml,.html,.htm,.css,.jsx,.js,.ts,.py" multiple hidden />
         </section>
         <section id="easePopover" class="popover ease-popover" hidden aria-label="Ease curves">
           <div class="ease-editor">
@@ -122,7 +122,7 @@
               <button id="attachButton" class="icon-button" type="button" title="Attach images, videos, audio, or documents" aria-label="Attach files">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
               </button>
-              <input id="imageInput" type="file" accept="image/*,video/*,audio/*,.pdf,.txt,.md,.json,.csv,.srt,.vtt,.xml,.html,.jsx,.js" multiple hidden />
+              <input id="imageInput" type="file" accept="image/*,video/*,audio/*,.pdf,.docx,.pptx,.xlsx,.odt,.odp,.ods,.rtf,.txt,.md,.json,.csv,.tsv,.srt,.vtt,.xml,.html,.htm,.css,.jsx,.js,.ts,.py" multiple hidden />
               <button id="referencesButton" class="icon-button" type="button" title="Saved references" aria-label="Saved references" aria-haspopup="true" aria-expanded="false">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1Z" /></svg>
               </button>
@@ -316,6 +316,7 @@
     <script src="js/platform.js"></script>
     <script src="js/media.js"></script>
     <script src="js/references.js"></script>
+    <script src="js/documents.js"></script>
     <script src="js/eases.js"></script>
     <script src="js/extensions.js"></script>
     <script src="js/hosts.js"></script>

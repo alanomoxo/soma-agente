@@ -311,7 +311,7 @@
     [/^(\d+) of (\d+) undo steps restored\.$/, "$1 de $2 passos de desfazer restaurados."],
     [/^Soma Agente (.+) is ready\. Save your work and close the Adobe programs; the update installs automatically and you can reopen them right after\.$/, "O Soma Agente $1 está pronto. Salve seu trabalho e feche os programas Adobe; a atualização instala sozinha e você pode reabrir logo depois."],
     [/^“(.+)” could not be prepared: (.+) Remove it to send the message\.$/, "Não deu para preparar “$1”: $2 Remova o anexo para enviar a mensagem."],
-    [/^“(.+)” is not supported\. Attach images, videos, audio, PDFs, or text documents\.$/, "“$1” não é suportado. Anexe imagens, vídeos, áudios, PDFs ou documentos de texto."],
+    [/^“(.+)” is not supported\. Attach images, videos, audio, PDFs, or documents \(Word, PowerPoint, Excel, text\)\.$/, "“$1” não é suportado. Anexe imagens, vídeos, áudios, PDFs ou documentos (Word, PowerPoint, Excel, texto)."],
     [/^Could not attach “(.+)”: (.+)$/, "Não deu para anexar “$1”: $2"],
     [/^“(.+)” is already attached\.$/, "“$1” já está anexado."],
     [/^“(.+)” is already in References\.$/, "“$1” já está nas Referências."],

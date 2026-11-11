@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.9
+- Blender, Cinema 4D, Figma e Cavalry: o chat aceita imagens, vídeos, áudios, PDFs e documentos (Word, PowerPoint, Excel, LibreOffice, RTF, texto, CSV, JSON, legendas e código), e não só imagens. Vídeos viram quadros com o tempo de cada um, e o áudio é transcrito quando a transcrição de voz está instalada. O FFmpeg é baixado sozinho na primeira vez que alguém manda um vídeo.
+- Painel Adobe: aceita Word, PowerPoint, Excel e LibreOffice, e o ChatGPT e o Antigravity também leem PDFs (pelo texto extraído; o Claude continua lendo o PDF inteiro).
+
 ## 1.7.8
 - ChatGPT: quando a conta não aceita o modelo escolhido (erro "model is not supported"), o Soma troca de modelo sozinho, reenvia o pedido e avisa em português. O modelo recusado sai da lista por 7 dias. Vale para o painel Adobe, o Blender, o Cinema 4D, o Figma e o Cavalry.
 

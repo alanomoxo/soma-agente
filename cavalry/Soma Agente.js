@@ -324,8 +324,8 @@ function applyTexts() {
     connect.setText(L("Connect", "Conectar"));
     send.setText(state && state.busy ? L("Stop", "Parar") : L("Send", "Enviar"));
     send.setBackgroundColor(state && state.busy ? "#5a2a30" : C.pink);
-    attach.setText(L("+ Image", "+ Imagem"));
-    attach.setToolTip(L("Attach a reference image", "Anexar uma imagem de referência"));
+    attach.setText(L("+ File", "+ Arquivo"));
+    attach.setToolTip(L("Attach images, videos, audio, PDFs or documents", "Anexar imagens, vídeos, áudios, PDFs ou documentos"));
     prompt.setPlaceholder(L("Message Soma Agente", "Mensagem para o Soma Agente"));
 }
 
@@ -494,7 +494,7 @@ connect.onClick = function () { hubPost("/cavalry/login"); };
 noticeYes.onClick = function () { if (noticeAction) { noticeAction(); } };
 noticeNo.onClick = function () { if (noticeReject) { noticeReject(); } };
 attach.onClick = function () {
-    var path = api.presentOpenFile("", L("Attach a reference image", "Anexar uma imagem de referência"), "Images (*.png *.jpg *.jpeg *.gif *.webp)");
+    var path = api.presentOpenFile("", L("Attach a file", "Anexar um arquivo"), L("Supported files", "Arquivos aceitos") + " (*.png *.jpg *.jpeg *.gif *.webp *.mp4 *.mov *.m4v *.webm *.mkv *.avi *.wmv *.mts *.mpg *.mpeg *.mp3 *.wav *.m4a *.aac *.flac *.ogg *.oga *.opus *.wma *.pdf *.docx *.pptx *.xlsx *.odt *.odp *.ods *.rtf *.txt *.md *.markdown *.csv *.tsv *.json *.xml *.html *.htm *.srt *.vtt *.js *.jsx *.ts *.py *.css *.yaml *.yml *.ini *.log)");
     if (path) { attachments.push(path); render(); }
 };
 send.onClick = function () {
