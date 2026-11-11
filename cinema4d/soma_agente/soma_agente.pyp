@@ -45,6 +45,8 @@ PLUGIN_ID = 1990421
 ID_PROVIDER, ID_MODEL, ID_EFFORT, ID_STATUS, ID_CONNECT, ID_CHECK = 1001, 1002, 1003, 1004, 1005, 1006
 ID_FEEDBACK = 1030
 ID_PASTE = 1031
+ID_ATTACH_GROUP = 1032
+ID_REMOVE = 2000  # 2000 + n: the × of attachment n
 ID_LOG, ID_PROMPT, ID_SEND, ID_STOP, ID_ATTACH, ID_CLEAR, ID_NEW, ID_ATTACHED = 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017
 ID_LANGUAGE = 1018
 LANGUAGES = ["auto", "pt", "en"]
@@ -94,7 +96,8 @@ class SomaDialog(gui.GeDialog):
 
         self.AddMultiLineEditText(ID_LOG, c4d.BFH_SCALEFIT | c4d.BFV_SCALEFIT, initw=360, inith=380,
                                   style=c4d.DR_MULTILINE_READONLY | c4d.DR_MULTILINE_WORDWRAP)
-        self.AddStaticText(ID_ATTACHED, c4d.BFH_SCALEFIT, name="")
+        self.GroupBegin(ID_ATTACH_GROUP, c4d.BFH_SCALEFIT, cols=1)
+        self.GroupEnd()
         self.AddMultiLineEditText(ID_PROMPT, c4d.BFH_SCALEFIT, initw=360, inith=70, style=c4d.DR_MULTILINE_WORDWRAP)
 
         self.GroupBegin(0, c4d.BFH_SCALEFIT, cols=6)
@@ -212,8 +215,18 @@ class SomaDialog(gui.GeDialog):
             self.SetMultiLinePos(ID_LOG, 10 ** 6, 0)
         except Exception:  # noqa: BLE001 - older versions
             pass
-        names = ", ".join(os.path.basename(p) for p in self.attachments)
-        self.SetString(ID_ATTACHED, (L("Attached: ", "Anexado: ") + names) if names else "")
+        self.show_attachments()
+
+    def show_attachments(self):
+        """One button per attachment; clicking its × removes it."""
+        shown = tuple(self.attachments)
+        if shown == getattr(self, "shown_attachments", None):
+            return
+        self.shown_attachments = shown
+        self.LayoutFlushGroup(ID_ATTACH_GROUP)
+        for index, path in enumerate(self.attachments[:100]):
+            self.AddButton(ID_REMOVE + index, c4d.BFH_LEFT, name="✕   " + os.path.basename(path))
+        self.LayoutChanged(ID_ATTACH_GROUP)
 
     def Timer(self, msg):
         def tick():
@@ -225,6 +238,7 @@ class SomaDialog(gui.GeDialog):
     # -------------------------------------------------------------- input
     def Command(self, cid, msg):
         self.safely(lambda: self.handle(cid))
+        self.safely(self.show_attachments)
         return True
 
     def handle(self, cid):
@@ -264,6 +278,9 @@ class SomaDialog(gui.GeDialog):
                 c4d.gui.MessageDialog(L("Nothing to attach on the clipboard: copy a file or an image first.", "Nada para anexar na área de transferência: copie um arquivo ou uma imagem antes."))
         elif cid == ID_CLEAR:
             self.attachments = []
+        elif ID_REMOVE <= cid < ID_REMOVE + 100:
+            if cid - ID_REMOVE < len(self.attachments):
+                del self.attachments[cid - ID_REMOVE]
         elif cid == ID_NEW:
             a.new_chat()
         elif cid == ID_LANGUAGE:

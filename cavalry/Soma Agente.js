@@ -287,8 +287,9 @@ function newScroll() {
 }
 newScroll();
 
-// Composer
-var attached = label("", 11, C.dim);
+// Composer: one row per attachment, each with its own ×.
+var attached = vbox([0, 0, 0, 0], 2);
+var shownAttachments = null;
 var prompt = new ui.MultiLineEdit();
 prompt.setFixedHeight(56);
 prompt.setFontSize(12);
@@ -418,7 +419,29 @@ function renderChat() {
 }
 
 function fitComposer() {
-    composer.setFixedHeight(attachments.length ? 140 : 116);
+    composer.setFixedHeight(116 + 26 * Math.min(attachments.length, 6));
+}
+
+function showAttachments() {
+    var key = attachments.join("|");
+    if (key === shownAttachments) { return; }
+    shownAttachments = key;
+    attached.clear();
+    attachments.forEach(function (file) {
+        var row = new ui.HLayout();
+        row.setSpaceBetween(6);
+        var remove = button(C.field, 22);
+        remove.setText("×");
+        remove.setFixedWidth(24);
+        remove.setToolTip(L("Remove this attachment", "Tirar este anexo"));
+        remove.onClick = function () {
+            attachments = attachments.filter(function (other) { return other !== file; });
+            render();
+        };
+        row.add(remove, label(file.split(/[\\/]/).pop(), 11, C.dim));
+        row.addStretch();
+        attached.add(row);
+    });
 }
 
 function render() {
@@ -450,8 +473,7 @@ function renderState() {
         showNotice(null);
     }
     renderChat();
-    attached.setText(attachments.length ? L("Attached: ", "Anexado: ") + attachments.map(function (p) { return p.split(/[\\/]/).pop(); }).join(", ") : "");
-    attached.setHidden(!attachments.length);
+    showAttachments();
     fitComposer();
 }
 
@@ -522,7 +544,6 @@ somaTimer.start();
 ui.onClose = function () { somaTimer.stop(); };
 applyTexts();
 showNotice(null);
-attached.setHidden(true);
 fitComposer();
 showStatus(L("Connecting to Soma…", "Conectando ao Soma…"), C.dim, false);
 connect.setHidden(true);

@@ -252,6 +252,19 @@ class SOMA_OT_clear_attachments(Operator):
         return {"FINISHED"}
 
 
+class SOMA_OT_remove_attachment(Operator):
+    bl_idname = "soma.remove_attachment"
+    bl_label = "Remove attachment"
+    bl_description = "Remove this attachment from the message"
+    description = _tip("Remove this attachment from the message", "Tirar este anexo da mensagem")
+    index: bpy.props.IntProperty()
+
+    def execute(self, context):
+        if 0 <= self.index < len(context.window_manager.soma_attachments):
+            context.window_manager.soma_attachments.remove(self.index)
+        return {"FINISHED"}
+
+
 class SOMA_OT_approve(Operator):
     bl_idname = "soma.approve"
     bl_label = "Approve"
@@ -496,11 +509,13 @@ class SOMA_PT_chat(Panel):
         # Composer
         layout.separator()
         box = layout.box()
-        if wm.soma_attachments:
+        # One row per attachment, each with its own ×.
+        icons = {"image": "IMAGE_DATA", "video": "FILE_MOVIE", "audio": "FILE_SOUND"}
+        for index, item in enumerate(wm.soma_attachments):
             row = box.row(align=True)
-            names = ", ".join(os.path.basename(item.path) for item in wm.soma_attachments)
-            row.label(text=names if len(names) <= chars - 6 else names[:chars - 7] + "…", icon="FILE")
-            row.operator("soma.clear_attachments", text="", icon="X", emboss=False)
+            name = os.path.basename(item.path)
+            row.label(text=name if len(name) <= chars - 6 else name[:chars - 7] + "…", icon=icons.get(attachments.kind(item.path), "FILE_TEXT"))
+            row.operator("soma.remove_attachment", text="", icon="X", emboss=False).index = index
         row = box.row()
         row.scale_y = 1.5
         try:
@@ -545,7 +560,7 @@ class SOMA_PT_options(Panel):
         layout.operator("soma.feedback", text=L("Suggest or report a bug", "Sugerir ou reportar um problema"), icon="HELP")
 
 CLASSES = (SomaAttachment, SOMA_OT_approve, SOMA_OT_send, SOMA_OT_stop, SOMA_OT_new_chat, SOMA_OT_connect, SOMA_OT_check,
-           SOMA_OT_attach, SOMA_OT_paste, SOMA_OT_clear_attachments, SOMA_OT_open_chat, SOMA_OT_update, SOMA_OT_suggest, SOMA_OT_feedback, SOMA_PT_chat, SOMA_PT_options)
+           SOMA_OT_attach, SOMA_OT_paste, SOMA_OT_clear_attachments, SOMA_OT_remove_attachment, SOMA_OT_open_chat, SOMA_OT_update, SOMA_OT_suggest, SOMA_OT_feedback, SOMA_PT_chat, SOMA_PT_options)
 
 
 def register():

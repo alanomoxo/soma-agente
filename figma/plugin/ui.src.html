@@ -41,7 +41,11 @@
   #pending .ask button { margin-right: 6px; }
   .offline { margin: 12px; padding: 10px; border: 1px solid rgba(255,98,109,.45); border-radius: 10px; background: rgba(255,98,109,.08); color: #ffd3d6; display: none; }
   footer { padding: 8px 12px 12px; border-top: 1px solid var(--line); }
-  #attached { color: var(--muted); font-size: 11px; margin-bottom: 4px; }
+  #attached { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; }
+  #attached:empty { display: none; }
+  .chip { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 2px 3px 2px 8px; border: 1px solid var(--line); border-radius: 999px; background: #1a1a1a; color: var(--muted); font-size: 11px; }
+  .chip span { overflow: hidden; max-width: 210px; text-overflow: ellipsis; white-space: nowrap; }
+  .chip button { width: 16px; height: 16px; border: 0; border-radius: 50%; background: #2a2a2a; color: var(--text); font: inherit; font-size: 11px; line-height: 1; cursor: pointer; }
   .composer { border: 1px solid var(--line); border-radius: 12px; background: #141414; padding: 6px; }
   textarea { width: 100%; resize: none; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; min-height: 44px; }
   .actions { display: flex; gap: 6px; align-items: center; }
@@ -243,9 +247,26 @@
   el("language").onchange = function () { post("/language", { language: el("language").value }); };
   el("connect").onclick = function () { post("/login"); };
   el("attach").onclick = function () { el("file").click(); };
+  // One chip per attachment; its × takes it out of the message.
   function showAttached() {
-    var names = images.map(function (i) { return i.name; }).concat(paths.map(function (p) { return p.split(/[\\/]/).pop(); }));
-    el("attached").textContent = names.length ? L("Attached: ", "Anexado: ") + names.join(", ") : "";
+    var box = el("attached");
+    box.innerHTML = "";
+    function chip(name, remove) {
+      var item = document.createElement("span");
+      item.className = "chip";
+      var label = document.createElement("span");
+      label.textContent = name;
+      label.title = name;
+      var button = document.createElement("button");
+      button.textContent = "×";
+      button.title = L("Remove", "Remover");
+      button.onclick = function () { remove(); showAttached(); };
+      item.appendChild(label);
+      item.appendChild(button);
+      box.appendChild(item);
+    }
+    images.forEach(function (image) { chip(image.name, function () { images.splice(images.indexOf(image), 1); }); });
+    paths.forEach(function (p) { chip(p.split(/[\\/]/).pop(), function () { paths.splice(paths.indexOf(p), 1); }); });
   }
   function addFiles(files) {
     Array.prototype.forEach.call(files, function (file) {

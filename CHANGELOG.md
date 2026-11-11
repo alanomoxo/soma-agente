@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.7.11
+- Remover anexos: cada anexo tem seu próprio × para tirar só ele da mensagem, no Blender, no Cinema 4D, no Figma e no Cavalry (o painel Adobe já tinha).
+
 ## 1.7.10
 - Ctrl+V (Cmd+V no Mac) anexa mídia no chat: arquivos copiados no Explorer ou no Finder (vídeo, imagem, PDF, documentos) e imagens copiadas ou prints. Funciona no painel Adobe e no Figma; no Blender, no Cinema 4D e no Cavalry, que só colam texto no campo de mensagem, há um botão Colar.
 
