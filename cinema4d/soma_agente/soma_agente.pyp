@@ -28,7 +28,7 @@ def log(text):
 
 
 try:
-    from soma_core import Agent, extensions  # noqa: E402
+    from soma_core import Agent, attachments, extensions  # noqa: E402
     from soma_core import i18n  # noqa: E402
     from soma_core.i18n import L  # noqa: E402
     from soma_c4d_host import C4DHost  # noqa: E402
@@ -44,6 +44,7 @@ PLUGIN_ID = 1990421
 
 ID_PROVIDER, ID_MODEL, ID_EFFORT, ID_STATUS, ID_CONNECT, ID_CHECK = 1001, 1002, 1003, 1004, 1005, 1006
 ID_FEEDBACK = 1030
+ID_PASTE = 1031
 ID_LOG, ID_PROMPT, ID_SEND, ID_STOP, ID_ATTACH, ID_CLEAR, ID_NEW, ID_ATTACHED = 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017
 ID_LANGUAGE = 1018
 LANGUAGES = ["auto", "pt", "en"]
@@ -100,6 +101,7 @@ class SomaDialog(gui.GeDialog):
         self.AddButton(ID_SEND, c4d.BFH_SCALEFIT, name="Send")
         self.AddButton(ID_STOP, c4d.BFH_LEFT, name="Stop")
         self.AddButton(ID_ATTACH, c4d.BFH_LEFT, name="Attach file")
+        self.AddButton(ID_PASTE, c4d.BFH_LEFT, name="Paste")
         self.AddButton(ID_CLEAR, c4d.BFH_LEFT, name="Clear")
         self.AddButton(ID_NEW, c4d.BFH_LEFT, name="New chat")
         self.AddComboBox(ID_LANGUAGE, c4d.BFH_RIGHT)
@@ -119,7 +121,7 @@ class SomaDialog(gui.GeDialog):
     def apply_texts(self):
         """Button captions in the current language (also after switching it)."""
         for cid, en, pt in ((ID_CONNECT, "Connect", "Conectar"), (ID_CHECK, "Check", "Verificar"), (ID_SEND, "Send", "Enviar"),
-                            (ID_STOP, "Stop", "Parar"), (ID_ATTACH, "Attach file", "Anexar arquivo"), (ID_CLEAR, "Clear", "Limpar"),
+                            (ID_STOP, "Stop", "Parar"), (ID_ATTACH, "Attach file", "Anexar arquivo"), (ID_PASTE, "Paste", "Colar"), (ID_CLEAR, "Clear", "Limpar"),
                             (ID_NEW, "New chat", "Nova conversa"), (ID_FEEDBACK, "Suggest / report bug", "Sugerir / reportar bug")):
             self.SetString(cid, L(en, pt))
         if not LOAD_ERROR:
@@ -254,6 +256,12 @@ class SomaDialog(gui.GeDialog):
             path = c4d.storage.LoadDialog(type=c4d.FILESELECTTYPE_ANYTHING, title=L("Attach an image, video, audio, PDF or document", "Anexar imagem, vídeo, áudio, PDF ou documento"))
             if path:
                 self.attachments.append(path)
+        elif cid == ID_PASTE:
+            # Files copied in Explorer/Finder, or a copied image or screenshot.
+            pasted = attachments.clipboard_files()
+            self.attachments += pasted
+            if not pasted:
+                c4d.gui.MessageDialog(L("Nothing to attach on the clipboard: copy a file or an image first.", "Nada para anexar na área de transferência: copie um arquivo ou uma imagem antes."))
         elif cid == ID_CLEAR:
             self.attachments = []
         elif cid == ID_NEW:

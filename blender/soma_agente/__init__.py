@@ -227,6 +227,22 @@ class SOMA_OT_attach(Operator):
         return {"FINISHED"}
 
 
+class SOMA_OT_paste(Operator):
+    bl_idname = "soma.paste"
+    bl_label = "Paste"
+    bl_description = "Attach what is on the clipboard: files copied in Explorer/Finder, or a copied image or screenshot"
+    description = _tip("Attach what is on the clipboard: files copied in Explorer/Finder, or a copied image or screenshot",
+                       "Anexar o que está na área de transferência: arquivos copiados no Explorer/Finder, ou uma imagem copiada ou print")
+
+    def execute(self, context):
+        paths = attachments.clipboard_files()
+        for path in paths:
+            context.window_manager.soma_attachments.add().path = path
+        if not paths:
+            self.report({"INFO"}, L("Nothing to attach on the clipboard: copy a file or an image first.", "Nada para anexar na área de transferência: copie um arquivo ou uma imagem antes."))
+        return {"FINISHED"}
+
+
 class SOMA_OT_clear_attachments(Operator):
     bl_idname = "soma.clear_attachments"
     bl_label = "Remove attachments"
@@ -494,6 +510,7 @@ class SOMA_PT_chat(Panel):
         row = box.row(align=True)
         row.scale_y = 1.3
         row.operator("soma.attach", text="", icon="FILE_NEW")
+        row.operator("soma.paste", text="", icon="PASTEDOWN")
         row.operator("soma.open_chat", text="", icon="TEXT")
         row.separator()
         if a.busy:
@@ -528,7 +545,7 @@ class SOMA_PT_options(Panel):
         layout.operator("soma.feedback", text=L("Suggest or report a bug", "Sugerir ou reportar um problema"), icon="HELP")
 
 CLASSES = (SomaAttachment, SOMA_OT_approve, SOMA_OT_send, SOMA_OT_stop, SOMA_OT_new_chat, SOMA_OT_connect, SOMA_OT_check,
-           SOMA_OT_attach, SOMA_OT_clear_attachments, SOMA_OT_open_chat, SOMA_OT_update, SOMA_OT_suggest, SOMA_OT_feedback, SOMA_PT_chat, SOMA_PT_options)
+           SOMA_OT_attach, SOMA_OT_paste, SOMA_OT_clear_attachments, SOMA_OT_open_chat, SOMA_OT_update, SOMA_OT_suggest, SOMA_OT_feedback, SOMA_PT_chat, SOMA_PT_options)
 
 
 def register():

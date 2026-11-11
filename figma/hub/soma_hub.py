@@ -314,6 +314,10 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/login":
             a.login()
             self._send(200, {"ok": True})
+        elif path == "/paste":
+            # Files copied in Explorer/Finder or a copied image, for panels that cannot read them.
+            from soma_core import attachments
+            self._send(200, {"paths": attachments.clipboard_files()})
         elif path == "/feedback":
             a.open_feedback()
             self._send(200, {"ok": True})

@@ -114,7 +114,7 @@
   ];
 
   var el = function (id) { return document.getElementById(id); };
-  var revision = -1, state = null, online = false, images = [], registered = false;
+  var revision = -1, state = null, online = false, images = [], paths = [], registered = false;
   // Interface language: the shared Soma choice reported by the hub, else the browser language.
   var lang = /^pt/i.test(navigator.language || "") ? "pt" : "en";
   function L(en, pt) { return lang === "pt" ? pt : en; }
@@ -243,20 +243,35 @@
   el("language").onchange = function () { post("/language", { language: el("language").value }); };
   el("connect").onclick = function () { post("/login"); };
   el("attach").onclick = function () { el("file").click(); };
-  el("file").onchange = function () {
-    Array.prototype.forEach.call(el("file").files, function (file) {
+  function showAttached() {
+    var names = images.map(function (i) { return i.name; }).concat(paths.map(function (p) { return p.split(/[\\/]/).pop(); }));
+    el("attached").textContent = names.length ? L("Attached: ", "Anexado: ") + names.join(", ") : "";
+  }
+  function addFiles(files) {
+    Array.prototype.forEach.call(files, function (file) {
       var reader = new FileReader();
-      reader.onload = function () { images.push({ name: file.name, data: String(reader.result).split(",")[1] }); el("attached").textContent = L("Attached: ", "Anexado: ") + images.map(function (i) { return i.name; }).join(", "); };
+      reader.onload = function () { images.push({ name: file.name || "colado.png", data: String(reader.result).split(",")[1] }); showAttached(); };
       reader.readAsDataURL(file);
     });
+  }
+  el("file").onchange = function () {
+    addFiles(el("file").files);
     el("file").value = "";
   };
+  // Ctrl/Cmd+V: pasted images and files; files copied in Explorer/Finder do not reach the page, so the hub reads the clipboard.
+  document.addEventListener("paste", function (event) {
+    var data = event.clipboardData;
+    if (data && data.files && data.files.length) { event.preventDefault(); addFiles(data.files); return; }
+    if (data && data.getData("text/plain")) { return; }
+    event.preventDefault();
+    post("/paste").then(function (r) { (r.paths || []).forEach(function (p) { if (paths.indexOf(p) < 0) { paths.push(p); } }); showAttached(); });
+  });
   function send() {
     if (state && state.busy) { post("/stop"); return; }
     var text = el("prompt").value.trim();
-    if (!text && !images.length) { return; }
-    post("/send", { text: text, images: images }).then(function (r) {
-      if (r.ok) { el("prompt").value = ""; images = []; el("attached").textContent = ""; }
+    if (!text && !images.length && !paths.length) { return; }
+    post("/send", { text: text, images: images, paths: paths }).then(function (r) {
+      if (r.ok) { el("prompt").value = ""; images = []; paths = []; showAttached(); }
     });
   }
   el("send").onclick = send;

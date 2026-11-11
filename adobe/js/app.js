@@ -270,12 +270,10 @@
     }
     if (key === "v") {
       if (!document.execCommand("paste") && node.childProcess) {
-        try {
-          var pasted = node.childProcess.execSync("pbpaste", { encoding: "utf8" });
-          if (pasted) { document.execCommand("insertText", false, pasted); }
-        } catch (error) {
-          // Nothing to paste.
-        }
+        var pasted = "";
+        try { pasted = node.childProcess.execSync("pbpaste", { encoding: "utf8" }); } catch (error) { pasted = ""; }
+        // No text: maybe files copied in Finder or a copied image.
+        if (pasted) { document.execCommand("insertText", false, pasted); } else { pasteFromSystemClipboard(); }
       }
       return true;
     }
@@ -2364,6 +2362,46 @@
     });
   }
 
+  // Ctrl/Cmd+V: files copied in Explorer/Finder, else a copied image (a screenshot) saved as
+  // a PNG. Mirrors soma_core.attachments.clipboard_files.
+  var CLIPBOARD_WINDOWS = "[Console]::OutputEncoding = [Text.Encoding]::UTF8; Add-Type -AssemblyName System.Windows.Forms, System.Drawing; " +
+    "$files = [System.Windows.Forms.Clipboard]::GetFileDropList(); if ($files -and $files.Count) { $files | ForEach-Object { $_ }; exit }; " +
+    "$image = [System.Windows.Forms.Clipboard]::GetImage(); if ($image) { $image.Save($env:SOMA_PASTE_OUT, [System.Drawing.Imaging.ImageFormat]::Png); $env:SOMA_PASTE_OUT }";
+  var CLIPBOARD_MAC = ["try", "set copied to (the clipboard as «class furl»)", "return POSIX path of copied", "end try",
+    "try", "set png to (the clipboard as «class PNGf»)", "set target to open for access (POSIX file (system attribute \"SOMA_PASTE_OUT\")) with write permission",
+    "write png to target", "close access target", "return system attribute \"SOMA_PASTE_OUT\"", "end try", "return \"\""];
+  var pasting = false;
+
+  function pasteFromSystemClipboard() {
+    if (pasting || !node.childProcess || !node.fs) { return; }
+    pasting = true;
+    var dir = node.path.join(window.AEPlatform.dataDirectory(node), "pasted");
+    try {
+      node.fs.mkdirSync(dir, { recursive: true });
+      node.fs.readdirSync(dir).forEach(function (name) {
+        var old = node.path.join(dir, name);
+        if (Date.now() - node.fs.statSync(old).mtimeMs > 86400000) { safeRemove(old); }
+      });
+    } catch (error) { /* the folder is only a cache */ }
+    var env = {};
+    Object.keys(node.process.env).forEach(function (key) { env[key] = node.process.env[key]; });
+    env.SOMA_PASTE_OUT = node.path.join(dir, "colado-" + Date.now() + ".png");
+    var win = window.AEPlatform.windows(node);
+    var args = win ? ["-NoProfile", "-NonInteractive", "-STA", "-Command", CLIPBOARD_WINDOWS] : [];
+    if (!win) { CLIPBOARD_MAC.forEach(function (line) { args.push("-e", line); }); }
+    node.childProcess.execFile(win ? "powershell.exe" : "osascript", args, { timeout: 20000, windowsHide: true, env: env, encoding: "utf8" }, function (error, stdout) {
+      pasting = false;
+      var paths = String(stdout || "").split(/\r?\n/).map(function (line) { return line.trim(); }).filter(function (p) { return p && node.fs.existsSync(p); });
+      if (!paths.length) { return; }
+      paths.forEach(function (p) {
+        var kind = window.AEReferences.kindForName(p);
+        if (!kind) { showBanner("“" + node.path.basename(p) + "” is not supported. Attach images, videos, audio, PDFs, or documents (Word, PowerPoint, Excel, text)."); return; }
+        if (attachments.some(function (item) { return item.path === p; })) { return; }
+        addAttachmentFromPath(p, { kind: kind, temp: p === env.SOMA_PASTE_OUT });
+      });
+    });
+  }
+
   function addFile(file) {
     if (!file) { return Promise.resolve(); }
     var kind = window.AEReferences.kindForName(file.name || "", file.type);
@@ -3681,9 +3719,17 @@
     if (!files.length && HOST_REFS) { dropHostReferences(); }
   });
   document.addEventListener("paste", function (event) {
-    var files = (event.clipboardData && event.clipboardData.files) || [];
-    if (files.length) { event.preventDefault(); }
-    Array.prototype.forEach.call(files, addFile);
+    var data = event.clipboardData, files = (data && data.files) || [];
+    if (files.length) {
+      event.preventDefault();
+      Array.prototype.forEach.call(files, addFile);
+      return;
+    }
+    // Files copied in Explorer/Finder do not reach the page: read the system clipboard.
+    if (!data || !data.getData("text/plain")) {
+      event.preventDefault();
+      pasteFromSystemClipboard();
+    }
   });
   window.addEventListener("beforeunload", function () {
     if (mediaRecorder && mediaRecorder.state === "recording") {

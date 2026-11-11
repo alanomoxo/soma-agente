@@ -294,11 +294,12 @@ prompt.setFixedHeight(56);
 prompt.setFontSize(12);
 prompt.setBackgroundColor(C.card);
 var attach = button(C.field, 28);
+var paste = button(C.field, 28);
 var send = button(C.pink, 28);
 send.setMinimumWidth(88);
 var actions = new ui.HLayout();
 actions.setSpaceBetween(6);
-actions.add(attach);
+actions.add(attach, paste);
 actions.addStretch();
 actions.add(send);
 var composerBox = vbox([8, 8, 8, 8], 6);
@@ -325,6 +326,8 @@ function applyTexts() {
     send.setText(state && state.busy ? L("Stop", "Parar") : L("Send", "Enviar"));
     send.setBackgroundColor(state && state.busy ? "#5a2a30" : C.pink);
     attach.setText(L("+ File", "+ Arquivo"));
+    paste.setText(L("Paste", "Colar"));
+    paste.setToolTip(L("Attach what is on the clipboard: files copied in Explorer/Finder, or a copied image or screenshot", "Anexar o que está na área de transferência: arquivos copiados no Explorer/Finder, ou uma imagem copiada ou print"));
     attach.setToolTip(L("Attach images, videos, audio, PDFs or documents", "Anexar imagens, vídeos, áudios, PDFs ou documentos"));
     prompt.setPlaceholder(L("Message Soma Agente", "Mensagem para o Soma Agente"));
 }
@@ -496,6 +499,12 @@ noticeNo.onClick = function () { if (noticeReject) { noticeReject(); } };
 attach.onClick = function () {
     var path = api.presentOpenFile("", L("Attach a file", "Anexar um arquivo"), L("Supported files", "Arquivos aceitos") + " (*.png *.jpg *.jpeg *.gif *.webp *.mp4 *.mov *.m4v *.webm *.mkv *.avi *.wmv *.mts *.mpg *.mpeg *.mp3 *.wav *.m4a *.aac *.flac *.ogg *.oga *.opus *.wma *.pdf *.docx *.pptx *.xlsx *.odt *.odp *.ods *.rtf *.txt *.md *.markdown *.csv *.tsv *.json *.xml *.html *.htm *.srt *.vtt *.js *.jsx *.ts *.py *.css *.yaml *.yml *.ini *.log)");
     if (path) { attachments.push(path); render(); }
+};
+paste.onClick = function () {
+    var pasted = hubPost("/cavalry/paste").paths || [];
+    pasted.forEach(function (p) { if (attachments.indexOf(p) < 0) { attachments.push(p); } });
+    if (!pasted.length) { showNotice(L("Nothing to attach on the clipboard: copy a file or an image first.", "Nada para anexar na área de transferência: copie um arquivo ou uma imagem antes."), null, null); }
+    render();
 };
 send.onClick = function () {
     if (state && state.busy) { hubPost("/cavalry/stop"); return; }

@@ -118,11 +118,54 @@ def install_ffmpeg():
     return target
 
 
-def _run(args, timeout):
+def _run(args, timeout, env=None):
     try:
-        return subprocess.run(args, capture_output=True, timeout=timeout, creationflags=system.hidden_window_flags(), stdin=subprocess.DEVNULL)
+        return subprocess.run(args, capture_output=True, timeout=timeout, creationflags=system.hidden_window_flags(), stdin=subprocess.DEVNULL, env=env)
     except (OSError, subprocess.SubprocessError) as error:
         return subprocess.CompletedProcess(args, 1, b"", str(error).encode("utf-8"))
+
+
+# ------------------------------------------------------------------ clipboard
+# Files copied in Explorer/Finder, else a copied image (a screenshot) saved as PNG.
+CLIPBOARD_WINDOWS = """
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
+Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+$files = [System.Windows.Forms.Clipboard]::GetFileDropList()
+if ($files -and $files.Count) { $files | ForEach-Object { $_ }; exit }
+$image = [System.Windows.Forms.Clipboard]::GetImage()
+if ($image) { $image.Save($env:SOMA_PASTE_OUT, [System.Drawing.Imaging.ImageFormat]::Png); $env:SOMA_PASTE_OUT }
+"""
+CLIPBOARD_MAC = [
+    "try", "set copied to (the clipboard as «class furl»)", "return POSIX path of copied", "end try",
+    "try", "set png to (the clipboard as «class PNGf»)",
+    "set target to open for access (POSIX file (system attribute \"SOMA_PASTE_OUT\")) with write permission",
+    "write png to target", "close access target", "return system attribute \"SOMA_PASTE_OUT\"", "end try",
+    "return \"\"",
+]
+
+
+def clipboard_files():
+    """What Ctrl/Cmd+V would attach: paths of supported files on the system clipboard
+    (a copied image is saved as a PNG in the Soma data folder, kept for a day)."""
+    folder = os.path.join(system.data_directory(), "pasted")
+    os.makedirs(folder, exist_ok=True)
+    for name in os.listdir(folder):
+        old = os.path.join(folder, name)
+        if time.time() - os.path.getmtime(old) > 86400:
+            try:
+                os.remove(old)
+            except OSError:
+                pass
+    env = dict(os.environ, SOMA_PASTE_OUT=os.path.join(folder, "colado-%s.png" % time.strftime("%Y%m%d-%H%M%S")))
+    if system.WINDOWS:
+        out = _run(["powershell", "-NoProfile", "-NonInteractive", "-STA", "-Command", CLIPBOARD_WINDOWS], 20, env)
+    else:
+        args = ["osascript"]
+        for line in CLIPBOARD_MAC:
+            args += ["-e", line]
+        out = _run(args, 20, env)
+    paths = [line.strip() for line in out.stdout.decode("utf-8", "replace").splitlines()]
+    return [p for p in paths if p and os.path.isfile(p) and kind(p)]
 
 
 # ------------------------------------------------------------------ video and audio
